@@ -1,4 +1,4 @@
-# Manga Reader App
+# Manga Reader App (Under development, doesnt work well now)
 
 This repository contains a cross‑platform manga reader built with a Python
 FastAPI backend and a React (Next.js) frontend.  The goal of this project
