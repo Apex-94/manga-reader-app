@@ -1,0 +1,9 @@
+{
+  "name": "MangaHere",
+  "language": "en",
+  "version": "1.0.0",
+  "base_urls": [
+    "https://www.mangahere.cc",
+    "https://m.mangahere.cc"
+  ]
+}
