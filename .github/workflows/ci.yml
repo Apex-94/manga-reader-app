@@ -11,9 +11,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Backend
+      # ---------- Backend ----------
       - uses: actions/setup-python@v5
-        with: { python-version: "3.11" }
+        with:
+          python-version: "3.11"
       - name: Install backend deps
         working-directory: backend
         run: |
@@ -28,15 +29,15 @@ jobs:
           print("Backend import OK")
           PY
 
-      # Frontend
+      # ---------- Frontend ----------
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "yarn"
-          cache-dependency-path: frontend/yarn.lock
+          cache: "npm"   # ✅ use npm cache (no yarn.lock)
+          # cache-dependency-path omitted since there's no package-lock.json yet
       - name: Install frontend deps
         working-directory: frontend
-        run: npm ci
+        run: npm install   # ✅ works without a lockfile
       - name: Build frontend
         working-directory: frontend
         env:
@@ -44,8 +45,7 @@ jobs:
         run: npm run build
 
   docker:
-    # only publish images on pushes (not PRs)
-    if: github.event_name == 'push'
+    if: github.event_name == 'push'   # only publish images on branch pushes
     needs: build-test
     runs-on: ubuntu-latest
     permissions:
