@@ -1,8 +1,20 @@
+# app/main.py
+import os
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from app.extensions.loader import initialize_extensions
-from app.api import manga, sources
+app = FastAPI()
 
+# comma-separated list; e.g. "http://localhost:3000,https://your-frontend.example.com"
+allowed = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in allowed if o.strip()],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 def create_app() -> FastAPI:
     """
