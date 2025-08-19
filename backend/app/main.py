@@ -2,7 +2,9 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.extensions.loader import initialize_extensions
 
+from app.api import manga, sources
 app = FastAPI()
 
 # comma-separated list; e.g. "http://localhost:3000,https://your-frontend.example.com"
