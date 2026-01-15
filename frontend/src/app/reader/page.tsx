@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import axios from "axios";
 import { useSearchParams } from "next/navigation";
@@ -9,7 +9,10 @@ const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1",
 });
 
-export default function ReaderPage() {
+
+export const dynamic = "force-dynamic";
+
+function ReaderContent() {
   const searchParams = useSearchParams();
   const chapterUrl = searchParams.get("chapter_url") || "";
   const [mode, setMode] = useState<"scroll" | "single">("single");
@@ -106,5 +109,13 @@ export default function ReaderPage() {
         />
       </div>
     </div>
+  );
+}
+
+export default function ReaderPage() {
+  return (
+    <Suspense fallback={<p className="p-6">Loading Reader...</p>}>
+      <ReaderContent />
+    </Suspense>
   );
 }
