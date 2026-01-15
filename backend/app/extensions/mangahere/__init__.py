@@ -66,24 +66,84 @@ class MangaHere(BaseScraper):
         """
         Extract a list of manga cards from a listing page.
 
-        The method attempts to parse both desktop and mobile list layouts. If
-        desktop selectors produce no results a fallback parsing routine is
-        attempted on simpler mobile markup.
+        The method attempts to parse both desktop and mobile list layouts by iterating
+        over common card containers.
         """
         cards: List[MangaCard] = []
-        # Desktop listing blocks
-        for a in doc.select("ul.manga-list a, .manga-list-1 li a, .directory_list li a"):
-            title = a.get("title") or a.get_text(strip=True)
-            href = a.get("href")
-            if not href or not title:
+        
+        # Selectors for card containers:
+        # - Mobile: ul.manga-list li .post
+        # - Desktop: .manga-list-1 li, .directory_list li
+        items = doc.select("ul.manga-list li .post, .manga-list-1 li, .directory_list li")
+        
+        # If no containers found, fall back to broad link search (legacy/fallback)
+        if not items:
+            # Fallback for simpler lists or unexpected layouts
+            for a in doc.select("ul.manga-list a, .manga-list-1 li a, .directory_list li a"):
+                if a.get_text(strip=True) in ["All", "PC Version", "Home", "Hot", "Genres"]: # heuristic exclusion
+                    continue
+                # ... (rest of simple fallback if needed, but let's trust the container logic first)
+                pass
+
+        if not items and doc.select("ul li a"):
+             # Mobile listing fallback (directory/simple)
+             items = [li for li in doc.select("ul li") if li.select_one("a")]
+
+        for item in items:
+            # Find the main anchor (usually contains the cover image or title)
+            # Mobile: <div class="post"><a ...>...</a><a class="ch-button">...</a></div>
+            # We explicitly exclude .ch-button
+            a = item.select_one("a:not(.class-button):not(.ch-button)")
+            # If item is the <a> itself (fallback case), use it
+            if item.name == "a":
+                a = item
+            elif not a and item.name == "li":
+                 a = item.select_one("a")
+
+            if not a:
                 continue
-            img = a.select_one("img")
-            thumb = None
+
+            href = a.get("href")
+            if not href or href.startswith("javascript"):
+                continue
+
+            # Title Extraction
+            title = None
+            # 1. Look for explicit title class
+            title_node = item.select_one(".title, .manga-list-1-list-title-a")
+            if title_node:
+                title = title_node.get_text(strip=True)
+            
+            # 2. Look for title attribute on anchor
+            if not title:
+                title = a.get("title")
+            
+            # 3. Fallback: text content, but be careful of large blocks
+            if not title:
+                # If the anchor contains structural divs/paragraphs (like .cover-info), 
+                # taking all text is dangerous.
+                if a.select(".cover-info, .manga-list-1-list-info"):
+                    # We failed to find .title inside, possibly structure changed. 
+                    # Try finding any text node that isn't genre/author?
+                    pass
+                else:
+                    title = a.get_text(strip=True)
+
+            if not title:
+                continue
+                
+            # Image Extraction
+            img = item.select_one("img")
+            thumb_url = None
             if img:
                 thumb = img.get("data-src") or img.get("src")
-            thumb_url = None
-            if thumb:
-                thumb_url = thumb if not thumb.startswith("/") else urljoin(base_url, thumb)
+                if thumb:
+                    thumb_url = thumb if not thumb.startswith("/") else urljoin(base_url, thumb)
+            
+            # Require thumbnail for valid card (filters out text links)
+            if not thumb_url:
+                continue
+
             cards.append(
                 MangaCard(
                     title=title.strip(),
@@ -92,28 +152,7 @@ class MangaHere(BaseScraper):
                     source=self.name,
                 )
             )
-        # Mobile listing fallback
-        if not cards:
-            for li in doc.select("ul li"):
-                a = li.select_one("a[href]")
-                if not a:
-                    continue
-                title = (a.get("title") or a.get_text() or "").strip()
-                if not title:
-                    continue
-                img = li.select_one("img")
-                thumb = img.get("data-src") or img.get("src") if img else None
-                thumb_url = None
-                if thumb:
-                    thumb_url = thumb if not thumb.startswith("/") else urljoin(base_url, thumb)
-                cards.append(
-                    MangaCard(
-                        title=title,
-                        url=self.abs(base_url, a["href"]),
-                        thumbnail_url=thumb_url,
-                        source=self.name,
-                    )
-                )
+            
         return cards
 
     async def search(self, query: str, page: int = 1) -> List[MangaCard]:
