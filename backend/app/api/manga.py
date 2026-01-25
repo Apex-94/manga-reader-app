@@ -136,3 +136,19 @@ async def pages(
     scraper = _pick_source(source)
     pages = await scraper.pages(chapter_url)
     return {"pages": pages}
+@router.get("/resolve")
+async def resolve(
+    url: str = Query(..., description="Absolute URL of the page/image to resolve"),
+    source: str | None = Query(
+        None, description="Identifier of the source to query (name:lang)"
+    ),
+):
+    """
+    Resolve a lazy-loaded page URL to its actual image source.
+
+    If the URL is already an image, it is returned as-is. If it is an HTML page,
+    the scraper will attempt to extract the main image.
+    """
+    scraper = _pick_source(source)
+    image_url = await scraper.resolve_image(url)
+    return {"url": image_url}

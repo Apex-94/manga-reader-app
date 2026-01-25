@@ -96,3 +96,12 @@ class BaseScraper(ABC):
     async def pages(self, chapter_url: str) -> List[str]:
         """Fetch a list of image URLs for a chapter."""
         raise NotImplementedError
+
+    async def resolve_image(self, url: str) -> str:
+        """
+        Resolve a lazy-loaded page URL to its actual image source.
+
+        The default implementation returns the URL as-is, assuming it's already an image.
+        Scrapers that return HTML page URLs from `pages` must override this.
+        """
+        return url

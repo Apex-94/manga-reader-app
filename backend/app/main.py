@@ -4,19 +4,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.extensions.loader import initialize_extensions
 
-from app.api import manga, sources
+from app.api import manga, sources, proxy
 app = FastAPI()
 
-# comma-separated list; e.g. "http://localhost:3000,https://your-frontend.example.com"
-allowed = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[o.strip() for o in allowed if o.strip()],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 def create_app() -> FastAPI:
     """
@@ -34,11 +25,26 @@ def create_app() -> FastAPI:
         ),
         version="1.0.0",
     )
+
+    # Configure CORS
+    allowed = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000").split(",")
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[o.strip() for o in allowed if o.strip()],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     # load all extensions at application startup
     initialize_extensions()
     # register routers
     app.include_router(manga.router, prefix="/api/v1/manga", tags=["manga"])
     app.include_router(sources.router, prefix="/api/v1/sources", tags=["sources"])
+    app.include_router(proxy.router, prefix="/api/v1", tags=["proxy"])
+    
+    from app.api import library
+    app.include_router(library.router, prefix="/api/v1/library", tags=["library"])
 
     @app.get("/")
     async def root():
