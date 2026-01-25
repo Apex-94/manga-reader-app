@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.extensions.loader import initialize_extensions
 
-from app.api import manga, sources
+from app.api import manga, sources, proxy
 app = FastAPI()
 
 
@@ -41,6 +41,7 @@ def create_app() -> FastAPI:
     # register routers
     app.include_router(manga.router, prefix="/api/v1/manga", tags=["manga"])
     app.include_router(sources.router, prefix="/api/v1/sources", tags=["sources"])
+    app.include_router(proxy.router, prefix="/api/v1", tags=["proxy"])
     
     from app.api import library
     app.include_router(library.router, prefix="/api/v1/library", tags=["library"])
