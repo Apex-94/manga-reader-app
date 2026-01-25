@@ -4,6 +4,7 @@ import re
 import time
 from typing import List, Optional
 from urllib.parse import urljoin, quote_plus
+import asyncio
 
 import httpx
 from bs4 import BeautifulSoup
@@ -66,24 +67,84 @@ class MangaHere(BaseScraper):
         """
         Extract a list of manga cards from a listing page.
 
-        The method attempts to parse both desktop and mobile list layouts. If
-        desktop selectors produce no results a fallback parsing routine is
-        attempted on simpler mobile markup.
+        The method attempts to parse both desktop and mobile list layouts by iterating
+        over common card containers.
         """
         cards: List[MangaCard] = []
-        # Desktop listing blocks
-        for a in doc.select("ul.manga-list a, .manga-list-1 li a, .directory_list li a"):
-            title = a.get("title") or a.get_text(strip=True)
-            href = a.get("href")
-            if not href or not title:
+        
+        # Selectors for card containers:
+        # - Mobile: ul.manga-list li .post
+        # - Desktop: .manga-list-1 li, .directory_list li
+        items = doc.select("ul.manga-list li .post, .manga-list-1 li, .directory_list li")
+        
+        # If no containers found, fall back to broad link search (legacy/fallback)
+        if not items:
+            # Fallback for simpler lists or unexpected layouts
+            for a in doc.select("ul.manga-list a, .manga-list-1 li a, .directory_list li a"):
+                if a.get_text(strip=True) in ["All", "PC Version", "Home", "Hot", "Genres"]: # heuristic exclusion
+                    continue
+                # ... (rest of simple fallback if needed, but let's trust the container logic first)
+                pass
+
+        if not items and doc.select("ul li a"):
+             # Mobile listing fallback (directory/simple)
+             items = [li for li in doc.select("ul li") if li.select_one("a")]
+
+        for item in items:
+            # Find the main anchor (usually contains the cover image or title)
+            # Mobile: <div class="post"><a ...>...</a><a class="ch-button">...</a></div>
+            # We explicitly exclude .ch-button
+            a = item.select_one("a:not(.class-button):not(.ch-button)")
+            # If item is the <a> itself (fallback case), use it
+            if item.name == "a":
+                a = item
+            elif not a and item.name == "li":
+                 a = item.select_one("a")
+
+            if not a:
                 continue
-            img = a.select_one("img")
-            thumb = None
+
+            href = a.get("href")
+            if not href or href.startswith("javascript"):
+                continue
+
+            # Title Extraction
+            title = None
+            # 1. Look for explicit title class
+            title_node = item.select_one(".title, .manga-list-1-list-title-a")
+            if title_node:
+                title = title_node.get_text(strip=True)
+            
+            # 2. Look for title attribute on anchor
+            if not title:
+                title = a.get("title")
+            
+            # 3. Fallback: text content, but be careful of large blocks
+            if not title:
+                # If the anchor contains structural divs/paragraphs (like .cover-info), 
+                # taking all text is dangerous.
+                if a.select(".cover-info, .manga-list-1-list-info"):
+                    # We failed to find .title inside, possibly structure changed. 
+                    # Try finding any text node that isn't genre/author?
+                    pass
+                else:
+                    title = a.get_text(strip=True)
+
+            if not title:
+                continue
+                
+            # Image Extraction
+            img = item.select_one("img")
+            thumb_url = None
             if img:
                 thumb = img.get("data-src") or img.get("src")
-            thumb_url = None
-            if thumb:
-                thumb_url = thumb if not thumb.startswith("/") else urljoin(base_url, thumb)
+                if thumb:
+                    thumb_url = thumb if not thumb.startswith("/") else urljoin(base_url, thumb)
+            
+            # Require thumbnail for valid card (filters out text links)
+            if not thumb_url:
+                continue
+
             cards.append(
                 MangaCard(
                     title=title.strip(),
@@ -92,28 +153,7 @@ class MangaHere(BaseScraper):
                     source=self.name,
                 )
             )
-        # Mobile listing fallback
-        if not cards:
-            for li in doc.select("ul li"):
-                a = li.select_one("a[href]")
-                if not a:
-                    continue
-                title = (a.get("title") or a.get_text() or "").strip()
-                if not title:
-                    continue
-                img = li.select_one("img")
-                thumb = img.get("data-src") or img.get("src") if img else None
-                thumb_url = None
-                if thumb:
-                    thumb_url = thumb if not thumb.startswith("/") else urljoin(base_url, thumb)
-                cards.append(
-                    MangaCard(
-                        title=title,
-                        url=self.abs(base_url, a["href"]),
-                        thumbnail_url=thumb_url,
-                        source=self.name,
-                    )
-                )
+            
         return cards
 
     async def search(self, query: str, page: int = 1) -> List[MangaCard]:
@@ -229,43 +269,94 @@ class MangaHere(BaseScraper):
         chapters.sort(key=lambda c: (c.chapter_number if c.chapter_number is not None else 1e9))
         return chapters
 
+    def _extract_image(self, doc: BeautifulSoup) -> Optional[str]:
+        """Helper to find the main manga image in a page."""
+        # Mobile/Desktop common selectors for the main image
+        img = doc.select_one("img#image, .page img, .reader img, .reader-images img")
+        if img:
+            src = img.get("data-src") or img.get("src")
+            if src:
+                return src if not src.startswith("/") else urljoin(self.base_urls[1], src)
+        return None
+
     async def pages(self, chapter_url: str) -> List[str]:
-        doc = await self._get(chapter_url.replace(self.base_urls[0], self.base_urls[1]))
+        # Enforce mobile site for consistent parsing
+        url = chapter_url.replace(self.base_urls[0], self.base_urls[1])
+        doc = await self._get(url)
+
+        # 1. Check for mobile dropdown pagination (common on m.mangahere.cc)
+        options = doc.select("select.mangaread-page option")
+        if options:
+            page_urls = []
+            for i, opt in enumerate(options):
+                val = opt.get("value")
+                if val:
+                    full_url = self.abs(self.base_urls[1], val)
+                    # Deduplicate: if i=0 and it matches current, that defines the start
+                    # Actually, usually option 0 is Page 1.
+                    
+                # Lazy Loading Implementation:
+                # For the FIRST page, resolve it now to give the user something to see.
+                # For others, return the HTML URL.
+                
+                if i == 0:
+                    # Resolve immediately
+                    # Reuse 'doc' since we have it
+                    img = self._extract_image(doc)
+                    if img:
+                        page_urls.append(img)
+                    else:
+                        # Fallback: if we can't find img on p1, just push the URL 
+                        # and hope resolve_image picks it up later (though infinite loop risk if we're not careful)
+                        page_urls.append(full_url)
+                else:
+                    page_urls.append(full_url)
+            
+            # Deduplicate while preserving order? Actually list(dict.fromkeys) handles it but 
+            # we might have resolved 1st url -> image_url vs 2nd url -> html_url.
+            # They won't collide.
+            
+            if page_urls:
+                return page_urls
+
+        # 2. Fallback: Parse images directly (Long Strip or Desktop mode)
         imgs = doc.select(
             "img#image, .page img, .reader img, .reader-images img, img[data-src]"
         )
-        urls: List[str] = []
-        for im in imgs:
-            src = im.get("data-src") or im.get("src")
-            if src:
-                url_full = src if not src.startswith("/") else urljoin(self.base_urls[1], src)
-                urls.append(url_full)
-        if urls:
+        
+        # If we find multiple images, it's likely a strip mode -> return all
+        if len(imgs) > 1:
+            urls: List[str] = []
+            for im in imgs:
+                src = im.get("data-src") or im.get("src")
+                if src:
+                    url_full = src if not src.startswith("/") else urljoin(self.base_urls[1], src)
+                    urls.append(url_full)
             return urls
-        page_links = doc.select("a[href*='/c'][href*='/p']")
-        uniq: List[str] = []
-        seen = set()
-        for a in page_links:
-            href = a.get("href")
-            if not href:
-                continue
-            full = self.abs(self.base_urls[1], href)
-            if full not in seen:
-                seen.add(full)
-                uniq.append(full)
-        if uniq:
-            out: List[str] = []
-            for u in uniq:
-                d = await self._get(u)
-                im = d.select_one("img#image, .page img, .reader img, img[data-src]")
-                if im:
-                    src = im.get("data-src") or im.get("src")
-                    if src:
-                        url_full = src if not src.startswith("/") else urljoin(self.base_urls[1], src)
-                        out.append(url_full)
-            if out:
-                return out
+
+        # 3. Last attempt -> single image found
+        if imgs:
+            src = imgs[0].get("data-src") or imgs[0].get("src")
+            if src:
+                return [src if not src.startswith("/") else urljoin(self.base_urls[1], src)]
+        
         return []
+
+    async def resolve_image(self, url: str) -> str:
+        """
+        Fetch the HTML page at `url` and extract the main image source.
+        If `url` already looks like an image, returns it.
+        """
+        # Basic check if it's already an image (optimization)
+        if any(url.lower().endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".gif", ".webp"]):
+            return url
+            
+        try:
+            doc = await self._get(url)
+            img = self._extract_image(doc)
+            return img or url # Return original if failed, though likely broken
+        except Exception:
+            return url
 
     def _chapter_num(self, text: str) -> Optional[float]:
         m = re.search(r'(?:ch(?:apter)?\s*)?(\d+(?:\.\d+)?)', text, flags=re.I)
