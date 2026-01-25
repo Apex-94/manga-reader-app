@@ -4,6 +4,7 @@ import re
 import time
 from typing import List, Optional
 from urllib.parse import urljoin, quote_plus
+import asyncio
 
 import httpx
 from bs4 import BeautifulSoup
@@ -268,43 +269,94 @@ class MangaHere(BaseScraper):
         chapters.sort(key=lambda c: (c.chapter_number if c.chapter_number is not None else 1e9))
         return chapters
 
+    def _extract_image(self, doc: BeautifulSoup) -> Optional[str]:
+        """Helper to find the main manga image in a page."""
+        # Mobile/Desktop common selectors for the main image
+        img = doc.select_one("img#image, .page img, .reader img, .reader-images img")
+        if img:
+            src = img.get("data-src") or img.get("src")
+            if src:
+                return src if not src.startswith("/") else urljoin(self.base_urls[1], src)
+        return None
+
     async def pages(self, chapter_url: str) -> List[str]:
-        doc = await self._get(chapter_url.replace(self.base_urls[0], self.base_urls[1]))
+        # Enforce mobile site for consistent parsing
+        url = chapter_url.replace(self.base_urls[0], self.base_urls[1])
+        doc = await self._get(url)
+
+        # 1. Check for mobile dropdown pagination (common on m.mangahere.cc)
+        options = doc.select("select.mangaread-page option")
+        if options:
+            page_urls = []
+            for i, opt in enumerate(options):
+                val = opt.get("value")
+                if val:
+                    full_url = self.abs(self.base_urls[1], val)
+                    # Deduplicate: if i=0 and it matches current, that defines the start
+                    # Actually, usually option 0 is Page 1.
+                    
+                # Lazy Loading Implementation:
+                # For the FIRST page, resolve it now to give the user something to see.
+                # For others, return the HTML URL.
+                
+                if i == 0:
+                    # Resolve immediately
+                    # Reuse 'doc' since we have it
+                    img = self._extract_image(doc)
+                    if img:
+                        page_urls.append(img)
+                    else:
+                        # Fallback: if we can't find img on p1, just push the URL 
+                        # and hope resolve_image picks it up later (though infinite loop risk if we're not careful)
+                        page_urls.append(full_url)
+                else:
+                    page_urls.append(full_url)
+            
+            # Deduplicate while preserving order? Actually list(dict.fromkeys) handles it but 
+            # we might have resolved 1st url -> image_url vs 2nd url -> html_url.
+            # They won't collide.
+            
+            if page_urls:
+                return page_urls
+
+        # 2. Fallback: Parse images directly (Long Strip or Desktop mode)
         imgs = doc.select(
             "img#image, .page img, .reader img, .reader-images img, img[data-src]"
         )
-        urls: List[str] = []
-        for im in imgs:
-            src = im.get("data-src") or im.get("src")
-            if src:
-                url_full = src if not src.startswith("/") else urljoin(self.base_urls[1], src)
-                urls.append(url_full)
-        if urls:
+        
+        # If we find multiple images, it's likely a strip mode -> return all
+        if len(imgs) > 1:
+            urls: List[str] = []
+            for im in imgs:
+                src = im.get("data-src") or im.get("src")
+                if src:
+                    url_full = src if not src.startswith("/") else urljoin(self.base_urls[1], src)
+                    urls.append(url_full)
             return urls
-        page_links = doc.select("a[href*='/c'][href*='/p']")
-        uniq: List[str] = []
-        seen = set()
-        for a in page_links:
-            href = a.get("href")
-            if not href:
-                continue
-            full = self.abs(self.base_urls[1], href)
-            if full not in seen:
-                seen.add(full)
-                uniq.append(full)
-        if uniq:
-            out: List[str] = []
-            for u in uniq:
-                d = await self._get(u)
-                im = d.select_one("img#image, .page img, .reader img, img[data-src]")
-                if im:
-                    src = im.get("data-src") or im.get("src")
-                    if src:
-                        url_full = src if not src.startswith("/") else urljoin(self.base_urls[1], src)
-                        out.append(url_full)
-            if out:
-                return out
+
+        # 3. Last attempt -> single image found
+        if imgs:
+            src = imgs[0].get("data-src") or imgs[0].get("src")
+            if src:
+                return [src if not src.startswith("/") else urljoin(self.base_urls[1], src)]
+        
         return []
+
+    async def resolve_image(self, url: str) -> str:
+        """
+        Fetch the HTML page at `url` and extract the main image source.
+        If `url` already looks like an image, returns it.
+        """
+        # Basic check if it's already an image (optimization)
+        if any(url.lower().endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".gif", ".webp"]):
+            return url
+            
+        try:
+            doc = await self._get(url)
+            img = self._extract_image(doc)
+            return img or url # Return original if failed, though likely broken
+        except Exception:
+            return url
 
     def _chapter_num(self, text: str) -> Optional[float]:
         m = re.search(r'(?:ch(?:apter)?\s*)?(\d+(?:\.\d+)?)', text, flags=re.I)

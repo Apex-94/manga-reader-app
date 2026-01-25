@@ -12,6 +12,82 @@ const api = axios.create({
 
 export const dynamic = "force-dynamic";
 
+// Helper component to lazy resolve images
+function PageImage({
+  url,
+  chapterUrl,
+  index,
+  mode,
+}: {
+  url: string;
+  chapterUrl: string;
+  index: number;
+  mode: "scroll" | "single";
+}) {
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+
+  // Check if URL is already an image (optimization)
+  const isImage = useMemo(() => {
+    return /\.(jpg|jpeg|png|gif|webp)($|\?)/i.test(url);
+  }, [url]);
+
+  useEffect(() => {
+    if (isImage) {
+      setResolvedUrl(url);
+      return;
+    }
+
+    setLoading(true);
+    // Fetch resolved image
+    api
+      .get("/manga/resolve", {
+        params: { url },
+      })
+      .then((res) => {
+        setResolvedUrl(res.data.url);
+      })
+      .catch((err) => {
+        console.error("Failed to resolve image", err);
+        setError(true);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [url, isImage]);
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center bg-gray-900 text-red-500 h-96 w-full mb-2">
+        Failed to load page {index + 1}
+      </div>
+    );
+  }
+
+  if (!resolvedUrl) {
+    return (
+      <div className="flex items-center justify-center bg-gray-900 text-gray-500 h-96 w-full mb-2 animate-pulse">
+        Loading page {index + 1}...
+      </div>
+    );
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`${api.defaults.baseURL}/proxy_stream?url=${encodeURIComponent(resolvedUrl)}`}
+      alt={`p${index + 1}`}
+      className={
+        mode === "scroll"
+          ? "w-full mb-2"
+          : "max-h-[92vh] object-contain"
+      }
+      loading="lazy"
+    />
+  );
+}
+
 function ReaderContent() {
   const searchParams = useSearchParams();
   const chapterUrl = searchParams.get("chapter_url") || "";
@@ -41,7 +117,7 @@ function ReaderContent() {
 
   return (
     <div className="fixed inset-0 bg-black text-white">
-      <header className="absolute top-0 left-0 right-0 p-3 bg-black/70 flex gap-2">
+      <header className="absolute top-0 left-0 right-0 p-3 bg-black/70 flex gap-2 z-10">
         <button
           className="px-3 py-1 rounded bg-white/10"
           onClick={() => setMode(mode === "single" ? "scroll" : "single")}
@@ -62,18 +138,16 @@ function ReaderContent() {
       {mode === "scroll" ? (
         <div className="pt-14 pb-4 overflow-y-auto h-full">
           <div
-            className={`mx-auto max-w-screen-md ${
-              dir === "rtl" ? "direction-rtl" : ""
-            }`}
+            className={`mx-auto max-w-screen-md ${dir === "rtl" ? "direction-rtl" : ""
+              }`}
           >
             {pages.map((p, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={i}
-                src={p}
-                alt={`p${i + 1}`}
-                className="w-full mb-2"
-                loading={i < 3 ? "eager" : "lazy"}
+              <PageImage
+                key={`${chapterUrl}-${i}`}
+                url={p}
+                chapterUrl={chapterUrl}
+                index={i}
+                mode="scroll"
               />
             ))}
           </div>
@@ -82,21 +156,22 @@ function ReaderContent() {
         <div className="pt-14 h-full flex items-center justify-between">
           <button
             onClick={() => setIdx(Math.max(0, idx - 1))}
-            className="h-full w-1/6 opacity-0 hover:opacity-50"
+            className="h-full w-1/6 opacity-0 hover:opacity-50 z-10"
           >
             ‹
           </button>
-          <div className="flex-1 h-full flex items-center justify-center">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={pages[idx]}
-              alt={`p${idx + 1}`}
-              className="max-h-[92vh] object-contain"
+          <div className="flex-1 h-full flex items-center justify-center relative">
+            <PageImage
+              key={`${chapterUrl}-${idx}`}
+              url={pages[idx]}
+              chapterUrl={chapterUrl}
+              index={idx}
+              mode="single"
             />
           </div>
           <button
             onClick={() => setIdx(Math.min(pages.length - 1, idx + 1))}
-            className="h-full w-1/6 opacity-0 hover:opacity-50"
+            className="h-full w-1/6 opacity-0 hover:opacity-50 z-10"
           >
             ›
           </button>
