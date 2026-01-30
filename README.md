@@ -1,78 +1,113 @@
-# Manga Reader App (Under development, doesnt work well now)
+# Manga Reader App
 
-This repository contains a cross‑platform manga reader built with a Python
-FastAPI backend and a React (Next.js) frontend.  The goal of this project
-is to demonstrate how a modular scraping backend can be paired with a
-modern web interface to deliver an enjoyable reading experience across
-multiple devices.
+A modern, cross-platform manga reader application with a pluggable architecture for extending manga sources. The app features a FastAPI backend with async support and a responsive React frontend.
 
 ## Features
 
-- 🔌 **Pluggable source system** – A modular extension architecture allows
-  new manga sources to be added simply by implementing a Python class
-  conforming to the `BaseScraper` interface.
-- 🌐 **Modern backend** – FastAPI provides an asynchronous HTTP API that
-  proxies search, popular, latest, details, chapter list and page
-  requests to installed sources.  Extensions are discovered at runtime
-  without changing the core application.
-- 🖥️ **Responsive frontend** – The Next.js UI offers browsing, search,
-  source management and an immersive reader with single‑page or
-  continuous scroll modes.  It uses React Query for data fetching and
-  Tailwind CSS for styling.
-- 📦 **Docker support** – A `docker‑compose.yml` file is included to
-  start the backend and frontend together with a single command for
-  development or demonstration purposes.
+- 📖 **Browse & Read Manga**: Discover popular, latest, and search for manga from various sources
+- 🔌 **Pluggable Extension System**: Create custom extensions to support additional manga sources
+- 📱 **Responsive Design**: Works seamlessly on desktop and mobile devices
+- 🔄 **Real-time Updates**: Auto-refreshes library and chapters
+- 📚 **Library Management**: Save and organize your favorite manga
+- 🌐 **Image Proxy System**: Proxies images through backend to avoid CORS issues
+- 🎨 **Modern UI**: Clean, intuitive interface with dark/light mode support
+- 📦 **Docker Support**: Easy deployment with Docker Compose
 
-## Project layout
+## Technologies Used
+
+### Backend
+- **FastAPI**: Modern async API framework
+- **Python 3.10+**: Async/await support
+- **Beautiful Soup**: HTML parsing for web scraping
+- **HTTPX**: Async HTTP client
+- **Pydantic**: Data validation and serialization
+
+### Frontend
+- **React 18**: Modern UI library
+- **Next.js 14**: App router, SSR, and static generation
+- **TypeScript**: Type-safe development
+- **Tailwind CSS**: Utility-first CSS framework
+- **React Query**: Data fetching and caching
+- **Axios**: HTTP client for API requests
+
+## Project Layout
 
 ```
 .
 ├── backend/               # FastAPI service and extension system
-│   ├── app/               # API endpoints, core code and extensions
+│   ├── app/
+│   │   ├── api/           # API endpoints
+│   │   ├── extensions/    # Manga source extensions
+│   │   └── main.py        # Application entry point
 │   └── requirements.txt   # Python dependencies
-├── frontend/              # Next.js application
+├── frontend/              # React/Next.js application
+│   ├── src/
+│   │   ├── app/           # Pages and layouts
+│   │   ├── components/    # Reusable React components
+│   │   └── lib/           # API and utility functions
 │   └── package.json       # JavaScript dependencies
-├── docker‑compose.yml     # Compose file to run both services
-└── docs/                  # Additional documentation
+├── docs/                  # Documentation
+├── docker-compose.yml     # Docker Compose configuration
+└── README.md              # This file
 ```
 
-## Quick start
+## Quick Start
 
-The fastest way to get up and running is to use Docker Compose which
-builds and runs both services:
+### Using Docker Compose (Recommended)
 
-```sh
+```bash
 docker compose up --build
 ```
 
-To run the backend directly without Docker:
+This will start both the backend and frontend services.
 
-```sh
+### Running Locally without Docker
+
+#### Backend Setup
+```bash
 cd backend
+python -m venv venv
+# Windows
+venv\Scripts\activate
+# macOS/Linux
+source venv/bin/activate
+
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-To run the frontend directly:
-
-```sh
+#### Frontend Setup
+```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-The frontend expects the backend API to be available at
-`http://localhost:8000/api/v1`.  You can customise this by setting
-`NEXT_PUBLIC_API_URL` in the environment before starting the frontend.
+The frontend expects the backend API to be available at `http://localhost:8000/api/v1`. You can customize this by setting `NEXT_PUBLIC_API_URL` in the environment before starting the frontend.
 
-## Adding new sources
+## Usage
 
-The backend discovers scraper classes placed under `app/extensions` on
-startup.  Each extension must expose a `source` object implementing the
-interface defined in `app/extensions/base.py`.  A minimal scraper must
-provide methods for search, popular titles, latest updates, details,
-chapters and pages.  See the [architecture documentation](docs/architecture.md)
-for more details on how the plugin system works.
+1. **Browse Manga**: Use the browse page to discover popular or latest manga
+2. **Search**: Use the search bar to find manga by title
+3. **Read**: Click on a manga to view chapters and start reading
+4. **Manage Library**: Add manga to your library for quick access
+5. **Sources**: View and manage available manga sources
+
+## Extension Development
+
+Creating extensions allows you to add support for additional manga sources. See the [Extension Development Guide](docs/extensions.md) for detailed instructions.
+
+## Architecture
+
+The application follows a modular architecture with clear separation between frontend and backend. See the [Architecture Documentation](docs/architecture.md) for more details.
+
+## Contributing
+
+Contributions are welcome! Please feel free to:
+- Report bugs
+- Suggest features
+- Submit pull requests
+- Improve documentation
 
 ## License
 
