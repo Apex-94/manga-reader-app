@@ -205,23 +205,62 @@ class MangaHere(BaseScraper):
     async def details(self, manga_url: str) -> MangaDetails:
         url = manga_url.replace(self.base_urls[0], self.base_urls[1])
         doc = await self._get(url)
-        title_node = doc.select_one("h1") or doc.select_one(".title")
-        title = title_node.get_text(strip=True) if title_node else ""
-        desc_node = doc.select_one(".summary") or doc.select_one(".description")
-        description = desc_node.get_text(strip=True) if desc_node else ""
+        
+        # Title - from .manga-detail div (first text node)
+        title = ""
+        detail_div = doc.select_one(".manga-detail")
+        if detail_div:
+            # Get the title which is typically the first part before "Author"
+            text = detail_div.get_text(" ", strip=True)
+            # Title is before "Author(s):"
+            if "Author" in text:
+                title = text.split("Author")[0].strip()
+            else:
+                title = text.split("\n")[0].strip()
+        
+        # Description/Synopsis - look for manga-summary div
+        description = ""
+        summary_div = doc.select_one("div.manga-summary")
+        if summary_div:
+            description = summary_div.get_text(strip=True)
 
         def text_for(label: str) -> Optional[str]:
-            node = doc.find(string=re.compile(rf"^{label}\s*:", flags=re.I))
-            if node and node.parent:
-                next_text = node.parent.get_text(" ", strip=True)
-                parts = next_text.split(":", 1)
-                return parts[1].strip() if len(parts) > 1 else None
+            # Look for <p>Author(s): NAME</p> pattern
+            for p in doc.select(".detail-info p"):
+                text = p.get_text(strip=True)
+                if text.lower().startswith(label.lower()):
+                    # Extract after colon
+                    if ":" in text:
+                        result = text.split(":", 1)[1].strip()
+                        # If there's a link, get just the text
+                        if "<a" in str(p):
+                            result = p.select_one("a")
+                            if result:
+                                return result.get_text(strip=True)
+                        return result
             return None
 
         author = text_for("Author")
         artist = text_for("Artist")
-        status_raw = text_for("Status") or ""
-        genres = [a.get_text(strip=True) for a in doc.select(".genres a, [class*=genre] a")] or []
+        
+        # Status from detail-info <p> tags
+        status_raw = ""
+        for p in doc.select(".detail-info p"):
+            text = p.get_text(strip=True)
+            if text.lower().startswith("status"):
+                # Extract status value (after "Status: ")
+                match = re.search(r"Status:\s*(\w+)", text, re.I)
+                if match:
+                    status_raw = match.group(1)
+                    break
+        
+        # Genres from links
+        genres = []
+        for a in doc.select("a[href*='/genre/'], [class*=genre] a"):
+            text = a.get_text(strip=True)
+            if text and len(text) > 1 and "genre" not in text.lower():
+                genres.append(text)
+        
         status_map = {
             "ongoing": "ongoing",
             "complete": "completed",
@@ -230,13 +269,22 @@ class MangaHere(BaseScraper):
             "canceled": "cancelled",
             "cancelled": "cancelled",
         }
-        status = status_map.get(status_raw.lower(), "unknown")
+        status = status_map.get(status_raw.lower(), "ongoing" if status_raw else "unknown")
+        
+        # Image - look for detail-cover class which is the manga cover
         thumb = None
-        img = doc.select_one(".cover img, .manga-cover img, img[src*='/cover']")
-        if img:
-            src = img.get("data-src") or img.get("src")
-            if src:
-                thumb = src if not src.startswith("/") else urljoin(self.base_urls[1], src)
+        cover_img = doc.select_one("img.detail-cover")
+        if cover_img:
+            src = cover_img.get("data-src") or cover_img.get("src")
+            if src and "avatar" not in src:
+                # Handle protocol-relative URLs
+                if src.startswith("//"):
+                    thumb = "https:" + src
+                elif not src.startswith("http"):
+                    thumb = urljoin(self.base_urls[1], src)
+                else:
+                    thumb = src
+        
         return MangaDetails(
             title=title,
             description=description,
@@ -252,13 +300,43 @@ class MangaHere(BaseScraper):
         url = manga_url.replace(self.base_urls[0], self.base_urls[1])
         doc = await self._get(url)
         chapters: List[Chapter] = []
-        candidates = doc.select(".detail-list li a, .chapter-list li a, ul li a")
+        
+        # Get all potential chapter links
+        candidates = doc.select("a[href*='/manga/'][href*='/']")
+        
+        # If no candidates, try broader selectors
+        if not candidates:
+            candidates = doc.select(".detail-list a, .chapter-list a, ul li a")
+        
+        # List of UI noise to filter out
+        noise_patterns = {
+            "comments", "start reading", "read now", "bookmark", "share", "history",
+            "home", "browse", "search", "settings", "login", "register", "my library"
+        }
+        
         for a in candidates:
             href = a.get("href")
             name = a.get_text(" ", strip=True)
+            
+            # Skip if no href or name
             if not href or not name:
                 continue
+            
+            # Skip very short titles
+            if len(name.strip()) < 2:
+                continue
+            
+            # Skip obvious UI noise
+            if name.lower().strip() in noise_patterns:
+                continue
+            
+            # Skip if URL doesn't look like a manga/chapter page
+            if "/manga/" not in href.lower():
+                continue
+            
+            # Extract chapter number
             ch_no = self._chapter_num(name)
+            
             chapters.append(
                 Chapter(
                     title=name,
@@ -266,17 +344,43 @@ class MangaHere(BaseScraper):
                     chapter_number=ch_no,
                 )
             )
-        chapters.sort(key=lambda c: (c.chapter_number if c.chapter_number is not None else 1e9))
-        return chapters
+        
+        # Remove duplicates by URL
+        seen = set()
+        unique_chapters = []
+        for ch in chapters:
+            if ch.url not in seen:
+                seen.add(ch.url)
+                unique_chapters.append(ch)
+        
+        unique_chapters.sort(key=lambda c: (c.chapter_number if c.chapter_number is not None else 1e9))
+        return unique_chapters
 
     def _extract_image(self, doc: BeautifulSoup) -> Optional[str]:
         """Helper to find the main manga image in a page."""
-        # Mobile/Desktop common selectors for the main image
-        img = doc.select_one("img#image, .page img, .reader img, .reader-images img")
-        if img:
-            src = img.get("data-src") or img.get("src")
-            if src:
-                return src if not src.startswith("/") else urljoin(self.base_urls[1], src)
+        # Look for manga images in content area specifically
+        for selector in [
+            '[class*="content"] img[src*="zjcdn"]',
+            '[class*="content"] img[src*="/store/manga/"]',
+            '[class*="reader"] img',
+            'main img[src*="mangahere"]',
+            'article img[src*="mangahere"]',
+            'img[src*="zjcdn"]',
+            'img[src*="/store/manga/"]',
+            "img#image",
+            ".page img",
+            ".reader img",
+        ]:
+            for img in doc.select(selector):
+                src = img.get("data-src") or img.get("src")
+                if src and "avatar" not in src.lower() and "static.mangahere" not in src:
+                    # Make absolute URL
+                    if src.startswith("//"):
+                        return "https:" + src
+                    elif not src.startswith("http"):
+                        return urljoin(self.base_urls[1], src)
+                    else:
+                        return src
         return None
 
     async def pages(self, chapter_url: str) -> List[str]:
@@ -284,63 +388,50 @@ class MangaHere(BaseScraper):
         url = chapter_url.replace(self.base_urls[0], self.base_urls[1])
         doc = await self._get(url)
 
-        # 1. Check for mobile dropdown pagination (common on m.mangahere.cc)
-        options = doc.select("select.mangaread-page option")
-        if options:
-            page_urls = []
-            for i, opt in enumerate(options):
-                val = opt.get("value")
-                if val:
-                    full_url = self.abs(self.base_urls[1], val)
-                    # Deduplicate: if i=0 and it matches current, that defines the start
-                    # Actually, usually option 0 is Page 1.
-                    
-                # Lazy Loading Implementation:
-                # For the FIRST page, resolve it now to give the user something to see.
-                # For others, return the HTML URL.
+        # Get the image from the first page
+        first_page_img = self._extract_image(doc)
+        page_urls = []
+        
+        if first_page_img:
+            page_urls.append(first_page_img)
+        
+        # MangaHere page pattern:
+        # Page 1: /c001/
+        # Page 2: /c001/2.html
+        # Page 3: /c001/3.html
+        # etc.
+        
+        base_url = url.rstrip('/') + '/'
+        
+        # Try to discover pages by fetching them until we get a 404 or no image
+        # Limit to reasonable number to avoid timeouts
+        for page_num in range(2, 51):  # Check up to 50 pages
+            try:
+                # Construct page URL
+                page_url = f"{base_url}{page_num}.html"
                 
-                if i == 0:
-                    # Resolve immediately
-                    # Reuse 'doc' since we have it
-                    img = self._extract_image(doc)
-                    if img:
-                        page_urls.append(img)
-                    else:
-                        # Fallback: if we can't find img on p1, just push the URL 
-                        # and hope resolve_image picks it up later (though infinite loop risk if we're not careful)
-                        page_urls.append(full_url)
+                # Try fetching this page with shorter timeout
+                try:
+                    page_doc = await asyncio.wait_for(
+                        self._get(page_url),
+                        timeout=5.0  # 5 second timeout per page
+                    )
+                except asyncio.TimeoutError:
+                    break
+                
+                page_img = self._extract_image(page_doc)
+                
+                # If we found an image, add it
+                if page_img:
+                    page_urls.append(page_img)
                 else:
-                    page_urls.append(full_url)
-            
-            # Deduplicate while preserving order? Actually list(dict.fromkeys) handles it but 
-            # we might have resolved 1st url -> image_url vs 2nd url -> html_url.
-            # They won't collide.
-            
-            if page_urls:
-                return page_urls
-
-        # 2. Fallback: Parse images directly (Long Strip or Desktop mode)
-        imgs = doc.select(
-            "img#image, .page img, .reader img, .reader-images img, img[data-src]"
-        )
+                    # No manga image found on this page, stop
+                    break
+            except Exception:
+                # Error fetching (likely 404), stop
+                break
         
-        # If we find multiple images, it's likely a strip mode -> return all
-        if len(imgs) > 1:
-            urls: List[str] = []
-            for im in imgs:
-                src = im.get("data-src") or im.get("src")
-                if src:
-                    url_full = src if not src.startswith("/") else urljoin(self.base_urls[1], src)
-                    urls.append(url_full)
-            return urls
-
-        # 3. Last attempt -> single image found
-        if imgs:
-            src = imgs[0].get("data-src") or imgs[0].get("src")
-            if src:
-                return [src if not src.startswith("/") else urljoin(self.base_urls[1], src)]
-        
-        return []
+        return page_urls if page_urls else []
 
     async def resolve_image(self, url: str) -> str:
         """
