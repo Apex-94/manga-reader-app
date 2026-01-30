@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { api } from "../../lib/api";
+import { api, getProxyUrl } from "../../lib/api";
 import { Sparkles, BookOpen } from "lucide-react";
 
 interface MangaCard {
@@ -63,7 +63,7 @@ function Card({ item, onAdd }: { item: MangaCard, onAdd: (item: MangaCard) => vo
         <div className="aspect-[2/3] bg-gray-200 dark:bg-gray-700 overflow-hidden relative">
           {item.thumbnail_url && !imageError ? (
             <img
-              src={`http://localhost:8000/api/v1/proxy?url=${encodeURIComponent(item.thumbnail_url)}&source=mangahere:en`}
+              src={getProxyUrl(item.thumbnail_url, 'mangahere:en')}
               alt={item.title}
               loading="lazy"
               onError={() => setImageError(true)}
