@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 import httpx
 from app.api.manga import _pick_source
+import asyncio
 
 router = APIRouter()
 
@@ -17,87 +18,62 @@ async def proxy_image(
     Proxy an image request through the backend to attach correct headers (Referer, User-Agent).
     """
     try:
-        # Get the scraper to access its client/headers configuration
-        # If no source provided, default to mangahere (logic inside _pick_source)
-        scraper = _pick_source(source)
-        
-        # We'll use the scraper's existing client configuration (User-Agent, etc.)
-        # However, httpx.AsyncClient in the scraper might be bound to specific base URLs 
-        # or we might want to just create a quick request with the right headers.
-        
-        # The scraper.client is optimized for the site, so let's try to reuse its configuration
-        # BUT scraper.client is an instance attribute.
-        
-        # Actually, let's just construct the headers we need.
-        # Mangahere needs Referer: base_url
-        
+        # Build headers - use source-specific headers if available, otherwise use defaults
         headers = {
-            "User-Agent": scraper.client.headers.get("User-Agent"),
-            "Referer": scraper.base_urls[0] 
+            "User-Agent": (
+                "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+            ),
+            "Accept-Encoding": "gzip, deflate"
         }
-
-        # Create a transient client for streaming
-        # We shouldn't use scraper.client because we want to stream the response
-        # and not interfere with other operations.
         
-        async def image_stream():
-            async with httpx.AsyncClient() as client:
-                async with client.stream("GET", url, headers=headers, follow_redirects=True) as response:
+        # Try to get source-specific headers if source is provided
+        if source:
+            try:
+                scraper = _pick_source(source)
+                headers["User-Agent"] = scraper.client.headers.get("User-Agent") or headers["User-Agent"]
+                headers["Referer"] = scraper.base_urls[0]
+            except HTTPException:
+                # Source not found, use default headers and try to infer referer from URL
+                headers["Referer"] = url.rsplit('/', 1)[0] + "/"
+        else:
+            # No source provided, infer referer from URL
+            headers["Referer"] = url.rsplit('/', 1)[0] + "/"
+
+        # Retry logic for reliability
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+                    response = await client.get(url, headers=headers)
                     response.raise_for_status()
-                    async for chunk in response.aiter_bytes():
-                        yield chunk
-
-        # We need to fetch the headers first to set Content-Type correctly
-        # This is a bit tricky with StreamingResponse if we want to be fully async lazy
-        # simple approach: just start the stream
+                    
+                    return StreamingResponse(
+                        iter([response.content]),
+                        media_type=response.headers.get("content-type", "image/jpeg"),
+                        headers={
+                            "Cache-Control": "public, max-age=86400",
+                            "Content-Disposition": "inline"
+                        }
+                    )
+            except (httpx.TimeoutException, httpx.ConnectError) as e:
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(1)  # Wait before retry
+                    continue
+                raise HTTPException(status_code=504, detail=f"Image request timeout after {max_retries} retries")
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 403:
+                    # Try with different headers
+                    headers["Referer"] = url.rsplit('/', 1)[0] + "/"
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(1)
+                        continue
+                raise HTTPException(status_code=e.response.status_code, detail="Failed to fetch image from source")
         
-        # Better approach for proper Content-Type:
-        client = httpx.AsyncClient()
-        req = client.build_request("GET", url, headers=headers)
-        r = await client.send(req, stream=True)
-        
-        if r.status_code != 200:
-             await r.aclose()
-             raise HTTPException(status_code=r.status_code, detail="Failed to fetch image")
-
-        return StreamingResponse(
-            r.aiter_bytes(), 
-            media_type=r.headers.get("content-type", "image/jpeg"),
-            background=None # We rely on r.aclose() or similar? 
-            # httpx stream context manager closes on exit. 
-            # StreamingResponse runs in a separate context.
-            # We need to make sure 'client' is closed.
-        )
-        
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Proxy error: {str(e)}")
 
-# Simplified implementation avoiding complex stream context issues for now:
-# Just read small images into memory? No, manga images can be large-ish and we want speed.
-# Let's use a simpler pattern valid for FastAPI.
-
-@router.get("/proxy_stream")
-async def proxy_image_stream(
-    url: str = Query(..., description="Absolute URL"),
-    source: str | None = Query(None)
-):
-    scraper = _pick_source(source)
-    headers = {
-        "User-Agent": scraper.client.headers.get("User-Agent"),
-        "Referer": scraper.base_urls[0]
-    }
-    
-    # We return a generator that manages the client lifecycle
-    async def iterfile():
-        async with httpx.AsyncClient() as client:
-            async with client.stream("GET", url, headers=headers, follow_redirects=True) as resp:
-                 if resp.status_code != 200:
-                     raise HTTPException(status_code=resp.status_code)
-                 async for chunk in resp.aiter_bytes():
-                     yield chunk
-
-    # Note: we can't easily get Content-Type here without making a HEAD request first
-    # or starting the stream. FastAPI StreamingResponse accepts a generator.
-    # We'll default to image/jpeg or let browser sniff.
-    
-    return StreamingResponse(iterfile(), media_type="image/jpeg")
