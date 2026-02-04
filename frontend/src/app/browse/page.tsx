@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, getProxyUrl } from "../../lib/api";
-import { Sparkles, BookOpen } from "lucide-react";
+import { Sparkles, BookOpen, Filter, X, SlidersHorizontal, ChevronDown, ChevronUp } from "lucide-react";
 
 interface MangaCard {
   title: string;
@@ -107,15 +107,64 @@ function Card({ key, item, onAdd }: { key?: any, item: MangaCard, onAdd: (item: 
 export default function BrowsePage() {
   const [tab, setTab] = useState<"latest" | "popular" | "random">("latest");
   const [q, setQ] = useState("");
+  const [activeFilters, setActiveFilters] = useState<any[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Fetch sources to find active one
+  const { data: sourcesData } = useQuery({
+    queryKey: ["sources"],
+    queryFn: async () => {
+      const resp = await api.get(`/sources`);
+      return resp.data;
+    },
+  });
+
+  const activeSource = sourcesData?.sources?.find((s: any) => s.is_active);
+
+  // Fetch filters for active source
+  const { data: filtersData } = useQuery({
+    queryKey: ["filters", activeSource?.id],
+    queryFn: async () => {
+      if (!activeSource) return { filters: [] };
+      const resp = await api.get(`/manga/filters`, {
+        params: { source: activeSource.id },
+      });
+      return resp.data;
+    },
+    enabled: !!activeSource,
+  });
+
+  const handleFilterChange = (filterId: string, value: any) => {
+    setActiveFilters(prev => {
+      const existing = prev.find(f => f.id === filterId);
+      if (existing) {
+        if (value === null || value === "" || (Array.isArray(value) && value.length === 0)) {
+          return prev.filter(f => f.id !== filterId);
+        }
+        return prev.map(f => f.id === filterId ? { ...f, value } : f);
+      }
+      return [...prev, { id: filterId, value }];
+    });
+  };
+
+  const clearFilters = () => {
+    setActiveFilters([]);
+    setQ("");
+  };
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["browse", tab, q],
+    queryKey: ["browse", tab, q, activeFilters, activeSource?.id],
     queryFn: async () => {
-      console.log("Fetching data for", tab, q);
-      if (q.trim()) {
-        const resp = await api.get(`/manga/search`, {
-          params: { q },
-        });
+      console.log("Fetching data for", tab, q, activeFilters);
+      if (q.trim() || activeFilters.length > 0) {
+        const params: any = { q: q.trim() || "" };
+        if (activeFilters.length > 0) {
+          params.filters = JSON.stringify(activeFilters);
+        }
+        if (activeSource) {
+          params.source = activeSource.id;
+        }
+        const resp = await api.get(`/manga/search`, { params });
         return resp.data;
       }
       if (tab === "latest") {
@@ -200,8 +249,94 @@ export default function BrowsePage() {
               className="w-full md:w-64 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all shadow-sm"
             />
           </form>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`p-2 rounded-lg border transition-all ${showFilters || activeFilters.length > 0
+              ? "bg-indigo-50 border-indigo-200 text-indigo-600 dark:bg-indigo-900/20 dark:border-indigo-800"
+              : "bg-white border-gray-200 text-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400"
+              }`}
+            title="Filters"
+          >
+            <SlidersHorizontal className="w-5 h-5" />
+          </button>
         </div>
       </div>
+
+      {showFilters && filtersData?.filters && (
+        <div className="mb-8 p-6 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-200 dark:border-gray-700 animate-in slide-in-from-top duration-300">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-bold text-lg flex items-center gap-2">
+              <Filter className="w-5 h-5 text-indigo-500" />
+              Search Filters
+              {activeFilters.length > 0 && (
+                <span className="ml-2 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 text-xs rounded-full">
+                  {activeFilters.length} active
+                </span>
+              )}
+            </h3>
+            <button
+              onClick={clearFilters}
+              className="text-sm font-medium text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors"
+            >
+              Clear all
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filtersData.filters.map((filter: any) => (
+              <div key={filter.id} className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  {filter.name}
+                </label>
+                {filter.type === "select" || filter.type === "sort" ? (
+                  <select
+                    value={activeFilters.find(f => f.id === filter.id)?.value || ""}
+                    onChange={(e) => handleFilterChange(filter.id, e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                  >
+                    <option value="">Any</option>
+                    {filter.options?.map((opt: any) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                ) : filter.type === "multiselect" ? (
+                  <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
+                    {filter.options?.map((opt: any) => {
+                      const isActive = (activeFilters.find(f => f.id === filter.id)?.value || []).includes(opt.value);
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => {
+                            const current = activeFilters.find(f => f.id === filter.id)?.value || [];
+                            const next = isActive
+                              ? current.filter((v: any) => v !== opt.value)
+                              : [...current, opt.value];
+                            handleFilterChange(filter.id, next);
+                          }}
+                          className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${isActive
+                            ? "bg-indigo-600 text-white shadow-sm"
+                            : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                            }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <input
+                    type="text"
+                    value={activeFilters.find(f => f.id === filter.id)?.value || ""}
+                    onChange={(e) => handleFilterChange(filter.id, e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
+                    placeholder={`Enter ${filter.name.toLowerCase()}...`}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="flex justify-center py-20">

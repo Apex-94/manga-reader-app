@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Any
 
 # type alias for allowed status values
 Status = Literal["ongoing", "completed", "hiatus", "cancelled", "unknown"]
@@ -49,6 +49,41 @@ class Chapter:
     uploaded_at_ts: Optional[int] = None
 
 
+@dataclass
+class Filter:
+    """Base class for all filters."""
+    id: str
+    name: str
+    value: Any = None
+
+@dataclass
+class SelectOption:
+    value: str
+    label: str
+
+@dataclass
+class SelectFilter(Filter):
+    """A dropdown select filter."""
+    options: List[SelectOption] = None
+    type: Literal["select"] = "select"
+
+@dataclass
+class MultiSelectFilter(Filter):
+    """A multi-select filter."""
+    options: List[SelectOption] = None
+    type: Literal["multiselect"] = "multiselect"
+
+@dataclass
+class TextFilter(Filter):
+    """A generic text input filter."""
+    type: Literal["text"] = "text"
+
+@dataclass
+class SortFilter(SelectFilter):
+    """A special select filter for sorting results."""
+    type: Literal["sort"] = "sort"
+
+
 class BaseScraper(ABC):
     """
     Abstract base class for manga scrapers.
@@ -67,8 +102,16 @@ class BaseScraper(ABC):
     #: Semantic version of the scraper implementation
     version: str = "1.0.0"
 
+    async def get_filters(self) -> List[Filter]:
+        """
+        Return a list of supported filters for this source.
+        
+        The default implementation returns an empty list.
+        """
+        return []
+
     @abstractmethod
-    async def search(self, query: str, page: int = 1) -> List[MangaCard]:
+    async def search(self, query: str, page: int = 1, filters: List[Filter] = None) -> List[MangaCard]:
         """Search for manga on the source."""
         raise NotImplementedError
 
