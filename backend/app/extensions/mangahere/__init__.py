@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import re
 import time
-from typing import List, Optional
+from typing import List, Optional, Any, Dict
 from urllib.parse import urljoin, quote_plus
 import asyncio
 
 import httpx
 from bs4 import BeautifulSoup
 
-from app.extensions.base import BaseScraper, MangaCard, MangaDetails, Chapter
+from app.extensions.base import BaseScraper, MangaCard, MangaDetails, Chapter, Filter, SelectFilter, MultiSelectFilter, SelectOption
 
 
 # User agent string used for HTTP requests. Many sites deliver different
@@ -156,12 +156,115 @@ class MangaHere(BaseScraper):
             
         return cards
 
-    async def search(self, query: str, page: int = 1) -> List[MangaCard]:
+    async def get_filters(self) -> List[Filter]:
+        return [
+            MultiSelectFilter(
+                id="genres",
+                name="Genres",
+                options=[
+                    SelectOption(label="Action", value="1"),
+                    SelectOption(label="Adventure", value="2"),
+                    SelectOption(label="Comedy", value="3"),
+                    SelectOption(label="Fantasy", value="4"),
+                    SelectOption(label="Historical", value="5"),
+                    SelectOption(label="Horror", value="6"),
+                    SelectOption(label="Martial Arts", value="7"),
+                    SelectOption(label="Mystery", value="8"),
+                    SelectOption(label="Romance", value="9"),
+                    SelectOption(label="Shounen Ai", value="10"),
+                    SelectOption(label="Supernatural", value="11"),
+                    SelectOption(label="Drama", value="12"),
+                    SelectOption(label="Shounen", value="13"),
+                    SelectOption(label="School Life", value="14"),
+                    SelectOption(label="Shoujo", value="15"),
+                    SelectOption(label="Gender Bender", value="16"),
+                    SelectOption(label="Josei", value="17"),
+                    SelectOption(label="Psychological", value="18"),
+                    SelectOption(label="Seinen", value="19"),
+                    SelectOption(label="Slice of Life", value="20"),
+                    SelectOption(label="Sci-fi", value="21"),
+                    SelectOption(label="Ecchi", value="22"),
+                    SelectOption(label="Harem", value="23"),
+                    SelectOption(label="Shoujo Ai", value="24"),
+                    SelectOption(label="Yuri", value="25"),
+                    SelectOption(label="Mature", value="26"),
+                    SelectOption(label="Tragedy", value="27"),
+                    SelectOption(label="Yaoi", value="28"),
+                    SelectOption(label="Doujinshi", value="29"),
+                    SelectOption(label="Sports", value="30"),
+                    SelectOption(label="Adult", value="31"),
+                    SelectOption(label="One Shot", value="32"),
+                    SelectOption(label="Smut", value="33"),
+                    SelectOption(label="Mecha", value="34"),
+                    SelectOption(label="Shotacon", value="35"),
+                    SelectOption(label="Lolicon", value="36"),
+                    SelectOption(label="Webtoons", value="37"),
+                ]
+            ),
+            SelectFilter(
+                id="status",
+                name="Status",
+                options=[
+                    SelectOption(label="Either", value="0"),
+                    SelectOption(label="Ongoing", value="1"),
+                    SelectOption(label="Completed", value="2"),
+                ]
+            ),
+            SelectFilter(
+                id="type",
+                name="Type",
+                options=[
+                    SelectOption(label="Any", value="0"),
+                    SelectOption(label="Japanese Manga", value="1"),
+                    SelectOption(label="Korean Manhwa", value="2"),
+                    SelectOption(label="Chinese Manhua", value="3"),
+                    SelectOption(label="European Manga", value="4"),
+                    SelectOption(label="American Manga", value="5"),
+                    SelectOption(label="HongKong Manga", value="6"),
+                ]
+            )
+        ]
+
+    async def search(self, query: str, page: int = 1, filters: List[Filter] = None) -> List[MangaCard]:
         base = self.base_urls[0]
         q = quote_plus(query)
+        
+        # Build filter params
+        params = {
+            "title": q,
+            "page": str(page),
+            "t": "1",
+            "stype": "1"
+        }
+        
+        if filters:
+            for f in filters:
+                if f.id == "genres" and f.value:
+                    # genres=1%2C2%2C3
+                    if isinstance(f.value, list):
+                        params["genres"] = ",".join(map(str, f.value))
+                    else:
+                        params["genres"] = str(f.value)
+                elif f.id == "status" and f.value:
+                    params["st"] = str(f.value)
+                elif f.id == "type" and f.value:
+                    params["type"] = str(f.value)
+
+        # Construct search URL
+        query_str = "&".join(f"{k}={v}" for k, v in params.items())
+        url = f"{base}/search?{query_str}"
+        
+        try:
+            doc = await self._get(url)
+            cards = self._parse_cards_list(doc, base)
+            if cards:
+                return cards
+        except Exception:
+            pass
+
+        # Fallback to standard search if filters failed or no results
         urls = [
             f"{base}/search?title={q}&page={page}&t=1&stype=1",
-            f"{base}/search?name={q}&page={page}",
             f"{self.base_urls[1]}/search?query={q}&page={page}",
         ]
         for url in urls:
