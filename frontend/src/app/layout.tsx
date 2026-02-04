@@ -26,7 +26,7 @@ export default function Layout({
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/browse" className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 flex items-center">
             <BookOpen className="w-6 h-6 mr-2" />
-            Manga Reader
+            PyYomi
           </Link>
           <div className="flex gap-6 text-sm font-medium text-gray-600 dark:text-gray-300 items-center">
             <Link to="/browse" className={`flex items-center hover:text-blue-600 transition-colors ${location.pathname === '/browse' ? 'text-blue-600' : ''}`}>
@@ -47,13 +47,13 @@ export default function Layout({
           </div>
         </div>
       </nav>
-      
+
       <div className="px-4 min-h-[calc(100vh-64px)]">
         {children}
       </div>
 
       <footer className="border-t border-gray-200 dark:border-gray-700 mt-12 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-        Manga Reader App - Built with React & FastAPI
+        PyYomi - Built with React & FastAPI
       </footer>
     </Providers>
   );

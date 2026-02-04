@@ -18,7 +18,7 @@ def create_app() -> FastAPI:
     source endpoints are included under the `/api/v1` prefix.
     """
     app = FastAPI(
-        title="Manga Reader API",
+        title="PyYomi API",
         description=(
             "A lightweight API that exposes manga scraping endpoints "
             "through a pluggable extension system."
@@ -48,7 +48,7 @@ def create_app() -> FastAPI:
 
     @app.get("/")
     async def root():
-        return {"message": "Welcome to the Manga Reader API"}
+        return {"message": "Welcome to the PyYomi API"}
 
     return app
 

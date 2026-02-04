@@ -1,0 +1,9 @@
+{
+    "name": "pyyomi-root",
+    "private": true,
+    "scripts": {
+        "build": "npm run build --prefix frontend",
+        "dev": "npm run dev --prefix frontend",
+        "install": "npm install --prefix frontend"
+    }
+}

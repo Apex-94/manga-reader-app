@@ -1,4 +1,4 @@
-# Manga Reader App
+# PyYomi
 
 A modern, cross-platform manga reader application with a pluggable architecture for extending manga sources. The app features a FastAPI backend with async support and a responsive React frontend.
 
