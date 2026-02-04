@@ -197,9 +197,13 @@ class MangaKatana(BaseScraper):
         r.raise_for_status()
         html = r.text
         
-        # Extract image URLs from script variable 'thzq' or 'ytaw'
-        # Seen as: var thzq=['https://...','https://...'];
-        match = re.search(r"var (?:thzq|ytaw)=\[(.*?)\];", html, re.DOTALL)
+        # Extract image URLs from script variable 'thzq' (full list) or 'ytaw' (fallback)
+        # Prioritize 'thzq' as it contains all pages, 'ytaw' often has only 1 page
+        match = re.search(r"var thzq=\[(.*?)\];", html, re.DOTALL)
+        if not match:
+            # Fallback to ytaw if thzq not found
+            match = re.search(r"var ytaw=\[(.*?)\];", html, re.DOTALL)
+        
         if not match:
             return []
             
