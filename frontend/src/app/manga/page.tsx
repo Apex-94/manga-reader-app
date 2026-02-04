@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams, Link } from "react-router-dom";
-import { api } from "../../lib/api";
+import { api, getProxyUrl } from "../../lib/api";
 import { summarizeManga } from "../../services/geminiService";
 import { Sparkles, BookOpen, Clock, PenTool, User } from "lucide-react";
 import { Manga } from "../../types";
@@ -79,7 +79,7 @@ export default function MangaPage() {
             {!backdropError && (
                 <div className="absolute top-0 left-0 w-full h-[400px] overflow-hidden -z-10 opacity-30 mask-image-gradient">
                     <img
-                        src={details.thumbnail_url ? `http://localhost:8000/api/v1/proxy?url=${encodeURIComponent(details.thumbnail_url)}&source=${encodeURIComponent(source || '')}` : ''}
+                        src={details.thumbnail_url ? getProxyUrl(details.thumbnail_url, source || '') : ''}
                         alt=""
                         onError={() => setBackdropError(true)}
                         className="w-full h-full object-cover blur-3xl scale-125"
@@ -94,7 +94,7 @@ export default function MangaPage() {
                         <div className="aspect-[2/3] w-48 md:w-full bg-gray-200 dark:bg-gray-700 rounded-xl overflow-hidden shadow-2xl ring-1 ring-black/10 dark:ring-white/10 mb-6">
                             {details.thumbnail_url && !imageError ? (
                                 <img
-                                    src={`http://localhost:8000/api/v1/proxy?url=${encodeURIComponent(details.thumbnail_url)}&source=${encodeURIComponent(source || '')}`}
+                                    src={getProxyUrl(details.thumbnail_url, source || '')}
                                     alt={details.title}
                                     onError={() => setImageError(true)}
                                     className="w-full h-full object-cover"

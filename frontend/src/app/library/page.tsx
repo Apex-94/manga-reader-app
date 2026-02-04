@@ -1,7 +1,7 @@
 import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { api } from "../../lib/api";
+import { api, getProxyUrl } from "../../lib/api";
 import { BookOpen } from "lucide-react";
 
 interface LibraryItem {
@@ -9,13 +9,6 @@ interface LibraryItem {
     url: string;
     thumbnail_url?: string;
     source: string;
-}
-
-// Helper function to get proxy URL for images
-function getProxyImageUrl(thumbnailUrl: string, source: string): string {
-    // Use the same base URL as the api instance
-    const baseUrl = 'http://localhost:8000/api/v1';
-    return `${baseUrl}/proxy?url=${encodeURIComponent(thumbnailUrl)}&source=${encodeURIComponent(source)}`;
 }
 
 function Card({ key, item, onRemove }: { key?: any, item: LibraryItem, onRemove: (url: string) => void }) {
@@ -28,7 +21,7 @@ function Card({ key, item, onRemove }: { key?: any, item: LibraryItem, onRemove:
                 <div className="aspect-[3/4] bg-gray-200 dark:bg-gray-700 overflow-hidden">
                     {item.thumbnail_url && (
                         <img
-                            src={getProxyImageUrl(item.thumbnail_url, item.source)}
+                            src={getProxyUrl(item.thumbnail_url, item.source)}
                             alt={item.title}
                             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                         />
