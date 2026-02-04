@@ -6,9 +6,11 @@ from the `app.extensions` package. A source is selected by its key
 (`name:language`) or defaults to `mangahere:en` if unspecified.
 """
 
+import json
 from fastapi import APIRouter, HTTPException, Query
 
 from app.extensions.loader import registry
+from app.extensions.base import Filter
 
 router = APIRouter()
 
@@ -51,6 +53,7 @@ async def search(
     source: str | None = Query(
         None, description="Identifier of the source to query (name:lang)"
     ),
+    filters: str | None = Query(None, description="JSON encoded filter values"),
 ):
     """
     Search for manga titles across a specific source.
@@ -60,8 +63,39 @@ async def search(
     returned.
     """
     scraper = _pick_source(source)
-    results = await scraper.search(q, page)
+    
+    parsed_filters = None
+    if filters:
+        try:
+            filter_data = json.loads(filters)
+            parsed_filters = [Filter(id=f['id'], name=f.get('name', ''), value=f.get('value')) for f in filter_data]
+        except Exception:
+            # Fallback to no filters if parsing fails
+            parsed_filters = None
+
+    results = await scraper.search(q, page, filters=parsed_filters)
     return {"results": [c.__dict__ for c in results], "page": page}
+
+
+@router.get("/filters")
+async def get_filters(
+    source: str | None = Query(
+        None, description="Identifier of the source to query (name:lang)"
+    ),
+):
+    """
+    Return a list of supported filters for a specific source.
+    """
+    scraper = _pick_source(source)
+    filters = await scraper.get_filters()
+    # Handle both dataclasses and potentially Pydantic models
+    result = []
+    for f in filters:
+        d = f.__dict__.copy()
+        if hasattr(f, 'type'):
+             d['type'] = f.type
+        result.append(d)
+    return {"filters": result}
 
 
 @router.get("/popular")

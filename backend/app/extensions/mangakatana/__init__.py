@@ -9,7 +9,7 @@ import asyncio
 import httpx
 from bs4 import BeautifulSoup
 
-from app.extensions.base import BaseScraper, MangaCard, MangaDetails, Chapter
+from app.extensions.base import BaseScraper, MangaCard, MangaDetails, Chapter, Filter, SelectFilter, MultiSelectFilter, SelectOption, SortFilter
 
 # User agent string used for HTTP requests.
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
@@ -78,13 +78,131 @@ class MangaKatana(BaseScraper):
             )
         return cards
 
-    async def search(self, query: str, page: int = 1) -> List[MangaCard]:
-        # Pattern: https://mangakatana.com/?search=...&search_by=book_name
-        q = quote_plus(query)
-        url = f"{self.base_urls[0]}/?search={q}&search_by=book_name"
-        if page > 1:
-            url += f"&page={page}"
-            
+    async def get_filters(self) -> List[Filter]:
+        return [
+            MultiSelectFilter(
+                id="genres",
+                name="Genres",
+                options=[
+                    SelectOption(label="4 koma", value="4-koma"),
+                    SelectOption(label="Action", value="action"),
+                    SelectOption(label="Adult", value="adult"),
+                    SelectOption(label="Adventure", value="adventure"),
+                    SelectOption(label="Artbook", value="artbook"),
+                    SelectOption(label="Award winning", value="award-winning"),
+                    SelectOption(label="Comedy", value="comedy"),
+                    SelectOption(label="Cooking", value="cooking"),
+                    SelectOption(label="Doujinshi", value="doujinshi"),
+                    SelectOption(label="Drama", value="drama"),
+                    SelectOption(label="Ecchi", value="ecchi"),
+                    SelectOption(label="Erotica", value="erotica"),
+                    SelectOption(label="Fantasy", value="fantasy"),
+                    SelectOption(label="Gender Bender", value="gender-bender"),
+                    SelectOption(label="Harem", value="harem"),
+                    SelectOption(label="Historical", value="historical"),
+                    SelectOption(label="Horror", value="horror"),
+                    SelectOption(label="Isekai", value="isekai"),
+                    SelectOption(label="Josei", value="josei"),
+                    SelectOption(label="Loli", value="loli"),
+                    SelectOption(label="Magic", value="magic"),
+                    SelectOption(label="Manhua", value="manhua"),
+                    SelectOption(label="Manhwa", value="manhwa"),
+                    SelectOption(label="Martial Arts", value="martial-arts"),
+                    SelectOption(label="Mecha", value="mecha"),
+                    SelectOption(label="Medical", value="medical"),
+                    SelectOption(label="Music", value="music"),
+                    SelectOption(label="Mystery", value="mystery"),
+                    SelectOption(label="One shot", value="one-shot"),
+                    SelectOption(label="Psychological", value="psychological"),
+                    SelectOption(label="Romance", value="romance"),
+                    SelectOption(label="School Life", value="school-life"),
+                    SelectOption(label="Sci-fi", value="sci-fi"),
+                    SelectOption(label="Seinen", value="seinen"),
+                    SelectOption(label="Shoujo", value="shoujo"),
+                    SelectOption(label="Shoujo Ai", value="shoujo-ai"),
+                    SelectOption(label="Shounen", value="shounen"),
+                    SelectOption(label="Shounen Ai", value="shounen-ai"),
+                    SelectOption(label="Slice of Life", value="slice-of-life"),
+                    SelectOption(label="Smut", value="smut"),
+                    SelectOption(label="Sports", value="sports"),
+                    SelectOption(label="Super Power", value="super-power"),
+                    SelectOption(label="Supernatural", value="supernatural"),
+                    SelectOption(label="Survival", value="survival"),
+                    SelectOption(label="Time Travel", value="time-travel"),
+                    SelectOption(label="Tragedy", value="tragedy"),
+                    SelectOption(label="Video Games", value="video-games"),
+                    SelectOption(label="Webtoon", value="webtoon"),
+                    SelectOption(label="Yaoi", value="yaoi"),
+                    SelectOption(label="Yuri", value="yuri"),
+                ]
+            ),
+            SelectFilter(
+                id="genre_mode",
+                name="Genre Mode",
+                options=[
+                    SelectOption(label="And", value="and"),
+                    SelectOption(label="Or", value="or"),
+                ]
+            ),
+            SelectFilter(
+                id="status",
+                name="Status",
+                options=[
+                    SelectOption(label="All", value=""),
+                    SelectOption(label="Ongoing", value="1"),
+                    SelectOption(label="Completed", value="2"),
+                    SelectOption(label="Cancelled", value="0"),
+                ]
+            ),
+            SortFilter(
+                id="order",
+                name="Sort By",
+                options=[
+                    SelectOption(label="Latest Update", value="latest"),
+                    SelectOption(label="New Manga", value="new"),
+                    SelectOption(label="Alphabetical (A-Z)", value="az"),
+                    SelectOption(label="Number of Chapters", value="numc"),
+                ]
+            )
+        ]
+
+    async def search(self, query: str, page: int = 1, filters: List[Filter] = None) -> List[MangaCard]:
+        # If no filters and we have a query, use simple search
+        if not filters and query:
+            q = quote_plus(query)
+            url = f"{self.base_urls[0]}/?search={q}&search_by=book_name"
+            if page > 1:
+                url += f"&page={page}"
+            try:
+                doc = await self._get(url)
+                return self._parse_cards_list(doc, self.base_urls[0])
+            except Exception:
+                return []
+
+        # Advanced search/filtered directory
+        # https://mangakatana.com/manga/page/1?filter=1&order=...&status=...&include=action_adventure
+        url = f"{self.base_urls[0]}/manga/page/{page}?filter=1"
+        
+        if query:
+            url += f"&search={quote_plus(query)}&search_by=book_name"
+
+        if filters:
+            for f in filters:
+                if f.id == "genres" and f.value:
+                    if isinstance(f.value, list):
+                        # Use underscore to join multiple genres for MangaKatana
+                        # include=action_adventure
+                        url += f"&include={'_'.join(f.value)}"
+                    else:
+                        url += f"&include={f.value}"
+                elif f.id == "genre_mode" and f.value:
+                    # include_mode=and or include_mode=or
+                    url += f"&include_mode={f.value}"
+                elif f.id == "status" and f.value:
+                    url += f"&status={f.value}"
+                elif f.id == "order" and f.value:
+                    url += f"&order={f.value}"
+
         try:
             doc = await self._get(url)
             return self._parse_cards_list(doc, self.base_urls[0])
