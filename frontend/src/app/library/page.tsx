@@ -18,11 +18,11 @@ function getProxyImageUrl(thumbnailUrl: string, source: string): string {
     return `${baseUrl}/proxy?url=${encodeURIComponent(thumbnailUrl)}&source=${encodeURIComponent(source)}`;
 }
 
-function Card({ item, onRemove }: { item: LibraryItem, onRemove: (url: string) => void }) {
+function Card({ key, item, onRemove }: { key?: any, item: LibraryItem, onRemove: (url: string) => void }) {
     return (
         <div className="block rounded-xl overflow-hidden border bg-white dark:bg-gray-800 dark:border-gray-700 hover:shadow-lg transition-all relative group">
             <Link
-                to={`/manga?url=${encodeURIComponent(item.url)}`}
+                to={`/manga?url=${encodeURIComponent(item.url)}&source=${encodeURIComponent(item.source)}`}
                 className="block"
             >
                 <div className="aspect-[3/4] bg-gray-200 dark:bg-gray-700 overflow-hidden">
@@ -88,7 +88,7 @@ export default function LibraryPage() {
             ) : (
                 <>
                     {(!data || data.length === 0) && (
-                         <div className="flex flex-col items-center justify-center py-20 text-center">
+                        <div className="flex flex-col items-center justify-center py-20 text-center">
                             <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-6">
                                 <BookOpen className="w-10 h-10 text-gray-400" />
                             </div>
