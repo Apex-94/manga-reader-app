@@ -1,15 +1,13 @@
-"""
-API routes for inspecting and reloading available manga sources.
-
-These endpoints expose information about loaded extension modules and
-provide a mechanism to reload them without restarting the application.
-"""
-
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 from app.extensions.loader import registry, initialize_extensions
 
 router = APIRouter()
+
+
+class ActiveSourceUpdate(BaseModel):
+    id: str
 
 
 @router.get("")
@@ -21,6 +19,31 @@ async def list_sources():
     name, language and version. Load errors are keyed by module name.
     """
     return {"sources": registry.list_sources(), "load_errors": registry.list_errors()}
+
+
+@router.get("/active")
+async def get_active_source():
+    """Return metadata about the currently active source."""
+    try:
+        source = registry.get_active_source()
+        return {
+            "id": registry.get_active_source_key(),
+            "name": source.name,
+            "language": source.language,
+            "version": getattr(source, "version", "1.0.0"),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/active")
+async def set_active_source(update: ActiveSourceUpdate):
+    """Set the globally active source."""
+    try:
+        registry.set_active_source(update.id)
+        return {"ok": True, "active_source": update.id}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/reload")

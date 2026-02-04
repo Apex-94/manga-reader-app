@@ -18,7 +18,7 @@ function HeroSection({ item }: { item: MangaCard }) {
   return (
     <div className="relative w-full h-[300px] md:h-[400px] rounded-2xl overflow-hidden mb-10 group shadow-2xl">
       {/* Background Image with Blur */}
-      <div 
+      <div
         className="absolute inset-0 bg-cover bg-center blur-sm scale-110 opacity-50 dark:opacity-40 transition-transform duration-1000 group-hover:scale-105"
         style={{ backgroundImage: `url(${item.thumbnail_url})` }}
       />
@@ -32,14 +32,14 @@ function HeroSection({ item }: { item: MangaCard }) {
           {item.title}
         </h2>
         <div className="flex gap-2 mb-4 text-xs md:text-sm text-gray-300 font-medium">
-             {item.genres?.slice(0, 3).map((g, i) => (
-               <span key={i} className="px-2 py-0.5 bg-white/10 rounded">{g}</span>
-             ))}
+          {item.genres?.slice(0, 3).map((g, i) => (
+            <span key={i} className="px-2 py-0.5 bg-white/10 rounded">{g}</span>
+          ))}
         </div>
         <p className="text-gray-300 text-sm md:text-base line-clamp-3 mb-6 max-w-lg">
           {item.description}
         </p>
-        <Link 
+        <Link
           to={`/manga?url=${encodeURIComponent(item.url)}`}
           className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold transition-all w-fit shadow-lg shadow-indigo-900/50 hover:scale-105"
         >
@@ -51,19 +51,19 @@ function HeroSection({ item }: { item: MangaCard }) {
   );
 }
 
-function Card({ item, onAdd }: { item: MangaCard, onAdd: (item: MangaCard) => void }) {
+function Card({ key, item, onAdd }: { key?: any, item: MangaCard, onAdd: (item: MangaCard) => void }) {
   const [imageError, setImageError] = React.useState(false);
 
   return (
     <div className="block rounded-xl overflow-hidden border bg-white dark:bg-gray-800 dark:border-gray-700 hover:shadow-xl hover:border-indigo-500/30 transition-all relative group h-full flex flex-col">
       <Link
-        to={`/manga?url=${encodeURIComponent(item.url)}`}
+        to={`/manga?url=${encodeURIComponent(item.url)}&source=${encodeURIComponent(item.source)}`}
         className="block flex-1"
       >
         <div className="aspect-[2/3] bg-gray-200 dark:bg-gray-700 overflow-hidden relative">
           {item.thumbnail_url && !imageError ? (
             <img
-              src={getProxyUrl(item.thumbnail_url, 'mangahere:en')}
+              src={getProxyUrl(item.thumbnail_url, item.source)}
               alt={item.title}
               loading="lazy"
               onError={() => setImageError(true)}
@@ -105,7 +105,7 @@ function Card({ item, onAdd }: { item: MangaCard, onAdd: (item: MangaCard) => vo
 }
 
 export default function BrowsePage() {
-  const [tab, setTab] = useState<"latest" | "popular">("latest");
+  const [tab, setTab] = useState<"latest" | "popular" | "random">("latest");
   const [q, setQ] = useState("");
 
   const { data, isLoading, refetch } = useQuery({
@@ -121,8 +121,11 @@ export default function BrowsePage() {
       if (tab === "latest") {
         const resp = await api.get(`/manga/latest`);
         return resp.data;
-      } else {
+      } else if (tab === "popular") {
         const resp = await api.get(`/manga/popular`);
+        return resp.data;
+      } else if (tab === "random") {
+        const resp = await api.get(`/manga/random`);
         return resp.data;
       }
     },
@@ -145,55 +148,64 @@ export default function BrowsePage() {
 
   return (
     <div className="py-8 animate-in fade-in duration-500">
-      
+
       {!q && !isLoading && featuredManga && <HeroSection item={featuredManga} />}
 
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 sticky top-[64px] z-20 bg-white/95 dark:bg-gray-800/95 backdrop-blur py-4 px-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <h1 className="text-3xl font-bold flex items-center gap-3">
-            <span className="w-1.5 h-8 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full"></span>
-            Browse Manga
+          <span className="w-1.5 h-8 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full"></span>
+          Browse Manga
         </h1>
         <div className="flex flex-wrap gap-3 items-center">
-            <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg border border-gray-200 dark:border-gray-600">
-                <button
-                onClick={() => setTab("latest")}
-                className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${tab === "latest"
-                    ? "bg-white dark:bg-gray-800 text-indigo-600 shadow-md border border-indigo-200 dark:border-indigo-600"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                    }`}
-                >
-                Latest
-                </button>
-                <button
-                onClick={() => setTab("popular")}
-                className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${tab === "popular"
-                    ? "bg-white dark:bg-gray-800 text-indigo-600 shadow-md border border-indigo-200 dark:border-indigo-600"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                    }`}
-                >
-                Popular
-                </button>
-            </div>
-            <form
+          <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg border border-gray-200 dark:border-gray-600">
+            <button
+              onClick={() => setTab("latest")}
+              className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${tab === "latest"
+                ? "bg-white dark:bg-gray-800 text-indigo-600 shadow-md border border-indigo-200 dark:border-indigo-600"
+                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                }`}
+            >
+              Latest
+            </button>
+            <button
+              onClick={() => setTab("popular")}
+              className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${tab === "popular"
+                ? "bg-white dark:bg-gray-800 text-indigo-600 shadow-md border border-indigo-200 dark:border-indigo-600"
+                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                }`}
+            >
+              Popular
+            </button>
+            <button
+              onClick={() => setTab("random")}
+              className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${tab === "random"
+                ? "bg-white dark:bg-gray-800 text-indigo-600 shadow-md border border-indigo-200 dark:border-indigo-600"
+                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                }`}
+            >
+              Random
+            </button>
+          </div>
+          <form
             onSubmit={(e) => {
-                e.preventDefault();
-                refetch();
+              e.preventDefault();
+              refetch();
             }}
             className="flex-1 md:flex-none"
-            >
+          >
             <input
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search..."
-                className="w-full md:w-64 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all shadow-sm"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search..."
+              className="w-full md:w-64 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all shadow-sm"
             />
-            </form>
+          </form>
         </div>
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-6">
