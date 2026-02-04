@@ -17,13 +17,31 @@ def _pick_source(source_key: str | None):
     """
     Retrieve a loaded source by its key.
 
-    If no key is provided, the default `mangahere:en` key is used. If the
-    requested source is not available, a 404 error is raised.
+    If no key is provided, the globally active source is used. This function
+    is resilient to missing language suffixes (e.g., "mangahere" will match
+    "mangahere:en"). If the requested source is not available, a 404 error
+    is raised.
     """
-    key = (source_key or "mangahere:en").lower()
-    if key not in registry._sources:
-        raise HTTPException(status_code=404, detail=f"Source {key} not found")
-    return registry.get(key)
+    # Use provided key or global active key or fallback
+    query_key = (source_key or registry.get_active_source_key() or "mangahere:en").lower()
+    
+    # 1. Direct match (e.g., "mangakatana:en")
+    if query_key in registry._sources:
+        return registry.get(query_key)
+        
+    # 2. Try adding :en if no colon present (e.g., "mangakatana" -> "mangakatana:en")
+    if ":" not in query_key:
+        en_key = f"{query_key}:en"
+        if en_key in registry._sources:
+            return registry.get(en_key)
+            
+    # 3. Match by name only (take first available language, e.g., "mangakatana")
+    prefix = f"{query_key}:"
+    for k in registry._sources:
+        if k.startswith(prefix):
+            return registry.get(k)
+            
+    raise HTTPException(status_code=404, detail=f"Source {query_key} not found")
 
 
 @router.get("/search")
