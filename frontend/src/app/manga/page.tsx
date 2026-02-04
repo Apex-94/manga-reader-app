@@ -27,26 +27,27 @@ interface Chapter {
 export default function MangaPage() {
     const [searchParams] = useSearchParams();
     const url = searchParams.get("url");
+    const source = searchParams.get("source");
     const [aiSummary, setAiSummary] = useState<string | null>(null);
     const [generatingSummary, setGeneratingSummary] = useState(false);
     const [imageError, setImageError] = useState(false);
     const [backdropError, setBackdropError] = useState(false);
 
     const { data: details, isLoading: loadingDetails } = useQuery({
-        queryKey: ["manga", url],
+        queryKey: ["manga", url, source],
         queryFn: async () => {
             if (!url) return null;
-            const resp = await api.get(`/manga/details`, { params: { url } });
+            const resp = await api.get(`/manga/details`, { params: { url, source } });
             return resp.data as MangaDetails;
         },
         enabled: !!url,
     });
 
     const { data: chapters, isLoading: loadingChapters } = useQuery({
-        queryKey: ["chapters", url],
+        queryKey: ["chapters", url, source],
         queryFn: async () => {
             if (!url) return [];
-            const resp = await api.get(`/manga/chapters`, { params: { url } });
+            const resp = await api.get(`/manga/chapters`, { params: { url, source } });
             return resp.data.chapters as Chapter[];
         },
         enabled: !!url,
@@ -74,18 +75,18 @@ export default function MangaPage() {
 
     return (
         <div className="relative animate-in fade-in duration-500">
-             {/* Backdrop */}
-             {!backdropError && (
-             <div className="absolute top-0 left-0 w-full h-[400px] overflow-hidden -z-10 opacity-30 mask-image-gradient">
-                <img 
-                    src={details.thumbnail_url ? `http://localhost:8000/api/v1/proxy?url=${encodeURIComponent(details.thumbnail_url)}&source=mangahere:en` : ''} 
-                    alt="" 
-                    onError={() => setBackdropError(true)}
-                    className="w-full h-full object-cover blur-3xl scale-125"
-                />
-                <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-white dark:from-black/10 dark:to-gray-900" />
-            </div>
-             )}
+            {/* Backdrop */}
+            {!backdropError && (
+                <div className="absolute top-0 left-0 w-full h-[400px] overflow-hidden -z-10 opacity-30 mask-image-gradient">
+                    <img
+                        src={details.thumbnail_url ? `http://localhost:8000/api/v1/proxy?url=${encodeURIComponent(details.thumbnail_url)}&source=${encodeURIComponent(source || '')}` : ''}
+                        alt=""
+                        onError={() => setBackdropError(true)}
+                        className="w-full h-full object-cover blur-3xl scale-125"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-white dark:from-black/10 dark:to-gray-900" />
+                </div>
+            )}
 
             <div className="pt-10 pb-8">
                 <div className="flex flex-col md:flex-row gap-10 mb-12">
@@ -93,7 +94,7 @@ export default function MangaPage() {
                         <div className="aspect-[2/3] w-48 md:w-full bg-gray-200 dark:bg-gray-700 rounded-xl overflow-hidden shadow-2xl ring-1 ring-black/10 dark:ring-white/10 mb-6">
                             {details.thumbnail_url && !imageError ? (
                                 <img
-                                    src={`http://localhost:8000/api/v1/proxy?url=${encodeURIComponent(details.thumbnail_url)}&source=mangahere:en`}
+                                    src={`http://localhost:8000/api/v1/proxy?url=${encodeURIComponent(details.thumbnail_url)}&source=${encodeURIComponent(source || '')}`}
                                     alt={details.title}
                                     onError={() => setImageError(true)}
                                     className="w-full h-full object-cover"
@@ -111,7 +112,7 @@ export default function MangaPage() {
 
                     <div className="flex-1">
                         <h1 className="text-4xl md:text-5xl font-black mb-4 tracking-tight leading-tight">{details.title}</h1>
-                        
+
                         <div className="flex flex-wrap gap-2 mb-6">
                             {details.genres.map((g) => (
                                 <span key={g} className="px-3 py-1 bg-white/50 dark:bg-gray-800/50 backdrop-blur rounded-full text-sm font-medium border border-gray-200 dark:border-gray-700 text-indigo-600 dark:text-indigo-400">
@@ -122,7 +123,7 @@ export default function MangaPage() {
 
                         <div className="flex flex-col gap-2 mb-8 text-sm text-gray-600 dark:text-gray-400">
                             <div className="flex items-center gap-2">
-                                <User className="w-4 h-4" /> 
+                                <User className="w-4 h-4" />
                                 <span className="font-semibold text-gray-900 dark:text-gray-200">Author:</span> {details.author || "Unknown"}
                             </div>
                             <div className="flex items-center gap-2">
@@ -131,10 +132,9 @@ export default function MangaPage() {
                             </div>
                             <div className="flex items-center gap-2">
                                 <Clock className="w-4 h-4" />
-                                <span className="font-semibold text-gray-900 dark:text-gray-200">Status:</span> 
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${
-                                    details.status === 'Ongoing' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                                }`}>
+                                <span className="font-semibold text-gray-900 dark:text-gray-200">Status:</span>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${details.status === 'Ongoing' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                                    }`}>
                                     {details.status}
                                 </span>
                             </div>
@@ -145,7 +145,7 @@ export default function MangaPage() {
                                 <h3 className="text-lg font-bold flex items-center gap-2">
                                     Synopsis
                                 </h3>
-                                <button 
+                                <button
                                     onClick={handleGenerateSummary}
                                     disabled={generatingSummary}
                                     className="text-xs flex items-center gap-1 text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-1 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors disabled:opacity-50"
@@ -154,13 +154,13 @@ export default function MangaPage() {
                                     {generatingSummary ? 'Thinking...' : 'AI Summarize'}
                                 </button>
                             </div>
-                            
+
                             {aiSummary ? (
                                 <div className="animate-in fade-in duration-700 bg-indigo-50/50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/30 mb-3">
-                                     <p className="text-indigo-900 dark:text-indigo-200 italic text-sm leading-relaxed">
+                                    <p className="text-indigo-900 dark:text-indigo-200 italic text-sm leading-relaxed">
                                         <Sparkles className="w-3 h-3 inline mr-1 text-indigo-500" />
                                         "{aiSummary}"
-                                     </p>
+                                    </p>
                                 </div>
                             ) : null}
 
@@ -178,7 +178,7 @@ export default function MangaPage() {
                     </h2>
                     {loadingChapters ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                            {[1,2,3].map(i => <div key={i} className="animate-pulse h-16 w-full bg-gray-200 dark:bg-gray-800 rounded-lg"></div>)}
+                            {[1, 2, 3].map(i => <div key={i} className="animate-pulse h-16 w-full bg-gray-200 dark:bg-gray-800 rounded-lg"></div>)}
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -186,7 +186,7 @@ export default function MangaPage() {
                                 chapters.slice().reverse().map((ch) => (
                                     <Link
                                         key={ch.url}
-                                        to={`/reader?chapter_url=${encodeURIComponent(ch.url)}`}
+                                        to={`/reader?chapter_url=${encodeURIComponent(ch.url)}&source=${encodeURIComponent(source || '')}`}
                                         className="flex items-center p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-indigo-50 dark:hover:bg-gray-700 transition-all hover:border-indigo-500/50 hover:shadow-md group"
                                     >
                                         <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mr-3 text-xs font-bold text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
