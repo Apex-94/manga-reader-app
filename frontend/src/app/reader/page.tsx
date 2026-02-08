@@ -4,6 +4,16 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { explainChapter } from "../../services/geminiService";
 import { ChevronLeft, ArrowLeft, ArrowRight, Sparkles, Settings2 } from "lucide-react";
+import {
+  Box,
+  Typography,
+  Paper,
+  Button,
+  ToggleButtonGroup,
+  ToggleButton,
+  IconButton,
+  LinearProgress,
+} from "@mui/material";
 
 // Helper component to lazy resolve images
 function PageImage({
@@ -56,17 +66,42 @@ function PageImage({
 
   if (error) {
     return (
-      <div className="flex items-center justify-center bg-gray-900 text-red-500 h-96 w-full mb-2">
+      <Box sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: '#111827',
+        color: '#ef4444',
+        height: '24rem',
+        width: '100%',
+        mb: 0.5,
+      }}>
         Failed to load page {index + 1}
-      </div>
+      </Box>
     );
   }
 
   if (!resolvedUrl) {
     return (
-      <div className="flex items-center justify-center bg-gray-900 text-gray-500 h-[60vh] w-full mb-2 animate-pulse rounded-lg">
-        <span className="text-xs uppercase tracking-widest">Loading...</span>
-      </div>
+      <Box sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        bgcolor: '#111827',
+        color: '#9ca3af',
+        height: '60vh',
+        width: '100%',
+        mb: 0.5,
+        borderRadius: 1,
+        animation: 'pulse 1.5s ease-in-out infinite',
+      }}>
+        <Typography variant="caption" sx={{
+          textTransform: 'uppercase',
+          letterSpacing: '0.2em',
+        }}>
+          Loading...
+        </Typography>
+      </Box>
     );
   }
 
@@ -74,11 +109,15 @@ function PageImage({
     <img
       src={resolvedUrl}
       alt={`p${index + 1}`}
-      className={
-        mode === "scroll"
-          ? "w-full mb-0 shadow-lg"
-          : "max-h-[92vh] max-w-full object-contain"
-      }
+      style={{
+        width: mode === "scroll" ? '100%' : 'auto',
+        height: mode === "scroll" ? 'auto' : '92vh',
+        objectFit: mode === "scroll" ? 'cover' : 'contain',
+        boxShadow: mode === "scroll" ? '0 2px 8px rgba(0, 0, 0, 0.3)' : 'none',
+        display: 'block',
+        maxWidth: '100%',
+        marginBottom: mode === "scroll" ? 0 : '0.5rem',
+      }}
       loading="lazy"
     />
   );
@@ -122,74 +161,199 @@ export default function ReaderPage() {
     }
   }, [chapter, manga]);
 
-  if (!chapterUrl) return <p className="p-6">Provide ?chapter_url=…</p>;
-  if (!data) return <div className="flex items-center justify-center h-screen bg-black text-zinc-500">Loading Reader...</div>;
+  if (!chapterUrl) return <Typography variant="body1" sx={{ p: 3 }}>Provide ?chapter_url=…</Typography>;
+  if (!data) return <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', bgcolor: 'black', color: '#9ca3af' }}>Loading Reader...</Box>;
 
   return (
-    <div className="fixed inset-0 bg-black text-white z-50 overflow-hidden">
+    <Box sx={{ position: 'fixed', inset: 0, bgcolor: 'black', color: 'white', zIndex: 50, overflow: 'hidden' }}>
 
       {/* Top Controls */}
-      <header
-        className={`absolute top-0 left-0 right-0 p-4 bg-black/90 backdrop-blur-sm border-b border-white/10 flex justify-between items-center z-40 transition-transform duration-300 ${showControls ? 'translate-y-0' : '-translate-y-full'}`}
-      >
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-gray-300 hover:text-white">
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-          <div className="hidden md:block">
-            <h1 className="text-sm font-bold text-gray-200">{manga?.title}</h1>
-            <p className="text-xs text-gray-500">Chapter {chapter?.number}</p>
-          </div>
-        </div>
+      <Paper sx={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        p: 1,
+        bgcolor: 'rgba(0, 0, 0, 0.9)',
+        backdropFilter: 'blur(8px)',
+        borderBottom: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        zIndex: 40,
+        transform: showControls ? 'translateY(0)' : 'translateY(-100%)',
+        transition: 'transform 0.3s ease',
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <IconButton
+            onClick={() => navigate(-1)}
+            sx={{
+              color: '#9ca3af',
+              '&:hover': {
+                bgcolor: 'rgba(255, 255, 255, 0.1)',
+                color: 'white',
+              },
+              borderRadius: '50%',
+            }}
+          >
+            <ChevronLeft size={24} />
+          </IconButton>
+          <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+            <Typography variant="caption" sx={{
+              fontWeight: 'bold',
+              color: '#d1d5db',
+              display: 'block',
+            }}>
+              {manga?.title}
+            </Typography>
+            <Typography variant="caption" sx={{
+              color: '#6b7280',
+              display: 'block',
+            }}>
+              Chapter {chapter?.number}
+            </Typography>
+          </Box>
+        </Box>
 
-        <div className="flex gap-2 items-center">
-          <div className="bg-zinc-900 rounded-lg p-1 flex items-center border border-zinc-800">
-            <button
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${mode === 'single' ? 'bg-indigo-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
-              onClick={() => setMode("single")}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Paper sx={{
+            bgcolor: '#1f2937',
+            borderRadius: 2,
+            p: 0.25,
+            display: 'flex',
+            alignItems: 'center',
+            border: 1,
+            borderColor: '#374151',
+          }}>
+            <ToggleButtonGroup
+              value={mode}
+              exclusive
+              onChange={(e, newMode) => newMode && setMode(newMode)}
+              size="small"
+              sx={{
+                '& .MuiToggleButton-root': {
+                  borderRadius: '10px',
+                  fontWeight: 'bold',
+                  fontSize: '0.75rem',
+                  px: 2,
+                  py: 0.75,
+                  '&.Mui-selected': {
+                    bgcolor: '#4f46e5',
+                    color: 'white',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                    border: '1px solid rgba(79, 70, 229, 0.2)',
+                    '&:hover': {
+                      bgcolor: '#4338ca',
+                    },
+                  },
+                  '&.Mui-selected.Mui-disabled': {
+                    bgcolor: '#374151',
+                    color: '#6b7280',
+                  },
+                },
+              }}
             >
-              Single
-            </button>
-            <button
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${mode === 'scroll' ? 'bg-indigo-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
-              onClick={() => setMode("scroll")}
-            >
-              Scroll
-            </button>
-          </div>
+              <ToggleButton value="single">Single</ToggleButton>
+              <ToggleButton value="scroll">Scroll</ToggleButton>
+            </ToggleButtonGroup>
+          </Paper>
 
-          <button
-            className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-gray-400 hover:text-white transition-colors"
+          <IconButton
             onClick={() => setDir(dir === "ltr" ? "rtl" : "ltr")}
             title="Toggle Reading Direction"
+            sx={{
+              bgcolor: '#1f2937',
+              border: 1,
+              borderColor: '#374151',
+              borderRadius: '10px',
+              color: '#9ca3af',
+              '&:hover': {
+                bgcolor: '#374151',
+                color: 'white',
+              },
+            }}
           >
-            <Settings2 className="w-4 h-4" />
-          </button>
-        </div>
-      </header>
+            <Settings2 size={16} />
+          </IconButton>
+        </Box>
+      </Paper>
 
       {/* Tap zone to toggle controls */}
-      <div className="absolute inset-0 z-10" onClick={() => setShowControls(!showControls)} />
+      <Box sx={{ position: 'absolute', inset: 0, zIndex: 10 }} onClick={() => setShowControls(!showControls)} />
 
       {/* Main Content */}
       {mode === "scroll" ? (
-        <div className="pt-0 pb-0 overflow-y-auto h-full relative z-20 bg-zinc-950">
-          <div className="max-w-screen-md mx-auto pt-20 pb-20">
+        <Box sx={{
+          height: '100%',
+          overflowY: 'auto',
+          position: 'relative',
+          zIndex: 20,
+          bgcolor: '#000000',
+        }}>
+          <Box sx={{
+            maxWidth: '48rem',
+            mx: 'auto',
+            pt: 8,
+            pb: 8,
+          }}>
 
             {/* AI Teaser */}
             {aiTeaser && (
-              <div className="mx-4 mb-8 p-6 bg-zinc-900/50 border border-indigo-900/30 rounded-2xl text-center relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-indigo-600 to-transparent opacity-50"></div>
-                <span className="inline-flex items-center gap-1 text-indigo-400 text-xs font-bold uppercase tracking-wider mb-2">
-                  <Sparkles className="w-3 h-3" /> AI Preview
-                </span>
-                <p className="text-gray-300 italic text-sm md:text-base leading-relaxed max-w-lg mx-auto">
+              <Paper sx={{
+                mx: 1,
+                mb: 2,
+                p: 3,
+                bgcolor: 'rgba(31, 41, 55, 0.5)',
+                border: 1,
+                borderColor: 'rgba(79, 70, 229, 0.3)',
+                borderRadius: 2,
+                textAlign: 'center',
+                position: 'relative',
+                overflow: 'hidden',
+              }}>
+                <Box sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: 1,
+                  background: 'linear-gradient(to right, transparent, #6366f1, transparent)',
+                  opacity: 0.5,
+                }} />
+                <Box sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 0.5,
+                  mb: 1,
+                }}>
+                  <Sparkles size={12} style={{ color: '#6366f1' }} />
+                  <Typography variant="caption" sx={{
+                    color: '#6366f1',
+                    fontWeight: 'bold',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                  }}>
+                    AI Preview
+                  </Typography>
+                </Box>
+                <Typography variant="body2" sx={{
+                  color: '#d1d5db',
+                  fontStyle: 'italic',
+                  lineHeight: 1.8,
+                  maxWidth: '36rem',
+                  mx: 'auto',
+                  fontSize: { xs: '0.75rem', md: '0.875rem' },
+                }}>
                   "{aiTeaser}"
-                </p>
-              </div>
+                </Typography>
+              </Paper>
             )}
 
-            <div className={dir === "rtl" ? "direction-rtl" : ""}>
+            <Box sx={{
+              direction: dir === "rtl" ? "rtl" : "ltr",
+            }}>
               {pages.map((p, i) => (
                 <PageImage
                   key={`${chapterUrl}-${i}`}
@@ -200,37 +364,111 @@ export default function ReaderPage() {
                   source={source}
                 />
               ))}
-            </div>
+            </Box>
 
             {/* Bottom Nav */}
-            <div className="mt-10 px-4 flex gap-4">
-              <button
+            <Box sx={{ mt: 2.5, px: 1, display: 'flex', gap: 1 }}>
+              <Button
                 disabled={!data?.prev_slug}
                 onClick={() => navigate(`/reader?chapter_url=${encodeURIComponent(data.prev_slug)}&source=${encodeURIComponent(source || '')}`)}
-                className="flex-1 py-4 bg-zinc-900 text-gray-300 rounded-xl hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed font-bold transition-colors"
+                variant="outlined"
+                sx={{
+                  flex: 1,
+                  py: 1.5,
+                  bgcolor: '#1f2937',
+                  borderColor: '#374151',
+                  color: '#d1d5db',
+                  fontWeight: 'bold',
+                  borderRadius: '12px',
+                  '&:hover': {
+                    bgcolor: '#374151',
+                    borderColor: '#4b5563',
+                    color: 'white',
+                  },
+                  '&:disabled': {
+                    opacity: 0.3,
+                    cursor: 'not-allowed',
+                  },
+                }}
               >
                 Previous Chapter
-              </button>
-              <button
+              </Button>
+              <Button
                 disabled={!data?.next_slug}
                 onClick={() => navigate(`/reader?chapter_url=${encodeURIComponent(data.next_slug)}&source=${encodeURIComponent(source || '')}`)}
-                className="flex-1 py-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed font-bold transition-colors"
+                variant="contained"
+                sx={{
+                  flex: 1,
+                  py: 1.5,
+                  bgcolor: '#4f46e5',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  borderRadius: '12px',
+                  '&:hover': {
+                    bgcolor: '#4338ca',
+                    boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)',
+                  },
+                  '&:disabled': {
+                    opacity: 0.3,
+                    cursor: 'not-allowed',
+                  },
+                }}
               >
                 Next Chapter
-              </button>
-            </div>
-          </div>
-        </div>
+              </Button>
+            </Box>
+          </Box>
+        </Box>
       ) : (
-        <div className="h-full flex items-center justify-between relative z-20 bg-zinc-950">
-          <button
-            onClick={(e) => { e.stopPropagation(); setIdx(Math.max(0, idx - 1)); }}
-            className="h-full w-32 opacity-0 hover:opacity-100 flex items-center justify-center z-30 hover:bg-gradient-to-r from-black/80 to-transparent absolute left-0 transition-all group"
-          >
-            <ArrowLeft className="w-10 h-10 text-white drop-shadow-lg transform group-hover:-translate-x-2 transition-transform" />
-          </button>
+        <Box sx={{
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          position: 'relative',
+          zIndex: 20,
+          bgcolor: '#000000',
+        }}>
+          <Box sx={{
+            position: 'absolute',
+            left: 0,
+            width: '8rem',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 30,
+            opacity: 0,
+            transition: 'opacity 0.2s ease',
+            '&:hover': {
+              opacity: 1,
+              background: 'linear-gradient(to right, rgba(0, 0, 0, 0.8), transparent)',
+            },
+          }}>
+            <IconButton
+              onClick={(e) => { e.stopPropagation(); setIdx(Math.max(0, idx - 1)); }}
+              sx={{
+                color: 'white',
+                filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5))',
+                '&:hover': {
+                  transform: 'translateX(-8px)',
+                  transition: 'transform 0.2s ease',
+                },
+              }}
+            >
+              <ArrowLeft size={40} />
+            </IconButton>
+          </Box>
 
-          <div className="flex-1 h-full flex items-center justify-center relative p-0" onClick={() => setShowControls(!showControls)}>
+          <Box sx={{
+            flex: 1,
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+            p: 0,
+          }} onClick={() => setShowControls(!showControls)}>
             <PageImage
               key={`${chapterUrl}-${idx}`}
               url={pages[idx]}
@@ -239,29 +477,90 @@ export default function ReaderPage() {
               mode="single"
               source={source}
             />
-          </div>
+          </Box>
 
-          <button
-            onClick={(e) => { e.stopPropagation(); setIdx(Math.min(pages.length - 1, idx + 1)); }}
-            className="h-full w-32 opacity-0 hover:opacity-100 flex items-center justify-center z-30 hover:bg-gradient-to-l from-black/80 to-transparent absolute right-0 transition-all group"
-          >
-            <ArrowRight className="w-10 h-10 text-white drop-shadow-lg transform group-hover:translate-x-2 transition-transform" />
-          </button>
+          <Box sx={{
+            position: 'absolute',
+            right: 0,
+            width: '8rem',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 30,
+            opacity: 0,
+            transition: 'opacity 0.2s ease',
+            '&:hover': {
+              opacity: 1,
+              background: 'linear-gradient(to left, rgba(0, 0, 0, 0.8), transparent)',
+            },
+          }}>
+            <IconButton
+              onClick={(e) => { e.stopPropagation(); setIdx(Math.min(pages.length - 1, idx + 1)); }}
+              sx={{
+                color: 'white',
+                filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5))',
+                '&:hover': {
+                  transform: 'translateX(8px)',
+                  transition: 'transform 0.2s ease',
+                },
+              }}
+            >
+              <ArrowRight size={40} />
+            </IconButton>
+          </Box>
 
           {/* Page Indicator */}
-          <div className={`absolute bottom-8 left-1/2 -translate-x-1/2 px-4 py-2 bg-zinc-900/90 backdrop-blur border border-zinc-800 rounded-full text-sm font-medium text-white shadow-xl transition-all duration-300 ${showControls ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-            Page {idx + 1} <span className="text-zinc-500">/</span> {pages.length}
-          </div>
-        </div>
+          <Paper sx={{
+            position: 'absolute',
+            bottom: 2,
+            left: '50%',
+            transform: showControls ? 'translateX(-50%) translateY(0) opacity(1)' : 'translateX(-50%) translateY(1rem) opacity(0)',
+            px: 2,
+            py: 0.5,
+            bgcolor: 'rgba(31, 41, 55, 0.9)',
+            backdropFilter: 'blur(8px)',
+            border: 1,
+            borderColor: '#374151',
+            borderRadius: '999px',
+            fontSize: '0.75rem',
+            fontWeight: 'bold',
+            color: 'white',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+            transition: 'all 0.3s ease',
+            zIndex: 40,
+          }}>
+            <Typography variant="caption">
+              Page {idx + 1} <span style={{ color: '#6b7280' }}>/</span> {pages.length}
+            </Typography>
+          </Paper>
+        </Box>
       )}
 
       {/* Progress Bar */}
-      <div className="fixed bottom-0 left-0 right-0 h-1 bg-zinc-800 z-50">
-        <div
-          className="h-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)] transition-all duration-300"
-          style={{ width: `${((idx + 1) / pages.length) * 100}%` }}
+      <Box sx={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 4,
+        bgcolor: '#1f2937',
+        zIndex: 50,
+      }}>
+        <LinearProgress
+          variant="determinate"
+          value={((idx + 1) / pages.length) * 100}
+          sx={{
+            height: '100%',
+            bgcolor: 'transparent',
+            '& .MuiLinearProgress-bar': {
+              bgcolor: '#6366f1',
+              boxShadow: '0 0 10px rgba(99, 102, 241, 0.5)',
+              transition: 'width 0.3s ease',
+            },
+          }}
         />
-      </div>
-    </div>
+      </Box>
+    </Box>
   );
 }
