@@ -2,6 +2,18 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api";
 import { CheckCircle, Globe, RefreshCw } from "lucide-react";
+import {
+  Box,
+  Typography,
+  Paper,
+  Button,
+  Grid,
+  Chip,
+  CircularProgress,
+  Container,
+  Divider,
+  useTheme,
+} from "@mui/material";
 
 export default function SourcesPage() {
   const queryClient = useQueryClient();
@@ -14,6 +26,7 @@ export default function SourcesPage() {
   });
 
   const [busy, setBusy] = useState(false);
+  const theme = useTheme();
 
   const reload = async () => {
     setBusy(true);
@@ -34,86 +47,206 @@ export default function SourcesPage() {
   });
 
   return (
-    <div className="py-8 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <Globe className="w-8 h-8 text-blue-600" />
-          Manga Sources
-        </h1>
-        <button
+    <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ color: '#3b82f6' }}>
+            <Globe size={32} />
+          </Box>
+          <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+            Manga Sources
+          </Typography>
+        </Box>
+        <Button
           onClick={reload}
           disabled={busy}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-all font-semibold shadow-sm"
+          startIcon={<RefreshCw size={16} className={busy ? 'animate-spin' : ''} />}
+          variant="outlined"
+          sx={{
+            borderRadius: '12px',
+            px: 2,
+            py: 1,
+            fontWeight: 'bold',
+            bgcolor: theme.palette.background.paper,
+            borderColor: theme.palette.divider,
+            color: theme.palette.text.primary,
+            '&:hover': {
+              bgcolor: theme.palette.action.hover,
+              borderColor: theme.palette.primary.main,
+            },
+            '&:disabled': {
+              opacity: 0.5,
+            },
+          }}
         >
-          <RefreshCw className={`w-4 h-4 ${busy ? 'animate-spin' : ''}`} />
           {busy ? "Reloading..." : "Reload Sources"}
-        </button>
-      </div>
+        </Button>
+      </Box>
 
       {isLoading ? (
-        <div className="flex justify-center py-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
+          <CircularProgress color="primary" />
+        </Box>
       ) : (
         <>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Grid container spacing={3}>
             {(data?.sources || []).map((s: any) => (
-              <div
-                key={s.id}
-                className={`group relative rounded-2xl border p-6 transition-all duration-300 ${s.is_active
-                    ? "border-blue-500 bg-blue-50/30 dark:bg-blue-900/10 shadow-md ring-1 ring-blue-500/20"
-                    : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 shadow-sm"
-                  }`}
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="font-bold text-xl text-gray-900 dark:text-gray-100">{s.name}</div>
-                  {s.is_active && (
-                    <div className="flex items-center gap-1.5 px-3 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full text-xs font-bold ring-1 ring-blue-700/10">
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      ACTIVE
-                    </div>
+              <Grid key={s.id} size={{ xs: 12, md: 6, lg: 4 }}>
+                <Paper sx={{
+                  borderRadius: '16px',
+                  border: 1,
+                  borderColor: s.is_active
+                    ? 'rgba(59, 130, 246, 0.3)'
+                    : theme.palette.divider,
+                  p: 3,
+                  transition: 'all 0.3s ease',
+                  bgcolor: s.is_active
+                    ? 'rgba(59, 130, 246, 0.05)'
+                    : theme.palette.background.paper,
+                  boxShadow: s.is_active
+                    ? '0 4px 20px rgba(59, 130, 246, 0.1)'
+                    : '0 1px 3px rgba(0, 0, 0, 0.05)',
+                  '&:hover': {
+                    borderColor: theme.palette.primary.main,
+                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+                  },
+                }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold', color: theme.palette.text.primary }}>
+                      {s.name}
+                    </Typography>
+                    {s.is_active && (
+                      <Chip
+                        icon={<CheckCircle size={14} />}
+                        label="ACTIVE"
+                        size="small"
+                        sx={{
+                          bgcolor: 'rgba(59, 130, 246, 0.2)',
+                          color: '#1d4ed8',
+                          fontWeight: 'bold',
+                          fontSize: '0.75rem',
+                          textTransform: 'uppercase',
+                          borderRadius: '999px',
+                        }}
+                      />
+                    )}
+                  </Box>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
+                    <Chip
+                      label={s.language}
+                      size="small"
+                      sx={{
+                        bgcolor: theme.palette.action.hover,
+                        color: theme.palette.text.primary,
+                        fontWeight: 'bold',
+                        fontSize: '0.75rem',
+                        textTransform: 'uppercase',
+                      }}
+                    />
+                    <Typography variant="caption" sx={{ color: theme.palette.text.secondary }}>
+                      VERSION {s.version}
+                    </Typography>
+                  </Box>
+
+                  {!s.is_active && (
+                    <Button
+                      onClick={() => setActiveMutation.mutate(s.id)}
+                      disabled={setActiveMutation.isPending}
+                      variant="contained"
+                      fullWidth
+                      sx={{
+                        borderRadius: '12px',
+                        py: 1.25,
+                        fontWeight: 'bold',
+                        textTransform: 'none',
+                        bgcolor: theme.palette.text.primary,
+                        color: theme.palette.background.paper,
+                        '&:hover': {
+                          bgcolor: theme.palette.text.secondary,
+                        },
+                        '&:disabled': {
+                          opacity: 0.5,
+                        },
+                        transition: 'all 0.2s ease',
+                        transform: setActiveMutation.isPending && setActiveMutation.variables === s.id ? 'scale(0.95)' : 'scale(1)',
+                      }}
+                    >
+                      {setActiveMutation.isPending && setActiveMutation.variables === s.id ? "Switching..." : "Switch to Source"}
+                    </Button>
                   )}
-                </div>
 
-                <div className="flex items-center gap-3 mb-6 text-sm text-gray-500 dark:text-gray-400">
-                  <span className="px-2.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-xs font-bold uppercase tracking-wider">{s.language}</span>
-                  <span className="font-medium text-xs">VERSION {s.version}</span>
-                </div>
-
-                {!s.is_active && (
-                  <button
-                    onClick={() => setActiveMutation.mutate(s.id)}
-                    disabled={setActiveMutation.isPending}
-                    className="w-full py-2.5 px-4 rounded-xl bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 font-bold text-sm hover:bg-gray-800 dark:hover:bg-white transition-all transform active:scale-95 disabled:opacity-50 shadow-sm"
-                  >
-                    {setActiveMutation.isPending && setActiveMutation.variables === s.id ? "Switching..." : "Switch to Source"}
-                  </button>
-                )}
-
-                {s.is_active && (
-                  <div className="w-full py-2.5 px-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 font-bold text-sm text-center">
-                    Currently Selected
-                  </div>
-                )}
-              </div>
+                  {s.is_active && (
+                    <Box sx={{
+                      borderRadius: '12px',
+                      py: 1.25,
+                      px: 2,
+                      bgcolor: 'rgba(59, 130, 246, 0.1)',
+                      border: 1,
+                      borderColor: 'rgba(59, 130, 246, 0.2)',
+                      color: '#3b82f6',
+                      fontWeight: 'bold',
+                      fontSize: '0.875rem',
+                      textAlign: 'center',
+                    }}>
+                      Currently Selected
+                    </Box>
+                  )}
+                </Paper>
+              </Grid>
             ))}
-          </div>
+          </Grid>
 
           {data?.load_errors && Object.keys(data.load_errors).length > 0 && (
-            <div className="mt-12 overflow-hidden rounded-2xl border border-red-200 dark:border-red-900/30 bg-red-50/50 dark:bg-red-900/10">
-              <div className="px-6 py-4 border-b border-red-100 dark:border-red-900/20 flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                <h3 className="font-bold text-red-800 dark:text-red-400">Extension Load Errors</h3>
-              </div>
-              <div className="p-6">
-                <pre className="text-xs whitespace-pre-wrap font-mono text-red-600 dark:text-red-300 bg-white/50 dark:bg-black/20 p-4 rounded-xl border border-red-100 dark:border-red-900/20">
+            <Paper sx={{
+              mt: 4,
+              borderRadius: '16px',
+              border: 1,
+              borderColor: 'rgba(239, 68, 68, 0.2)',
+              bgcolor: 'rgba(239, 68, 68, 0.05)',
+              overflow: 'hidden',
+            }}>
+              <Box sx={{
+                px: 3,
+                py: 2,
+                borderBottom: 1,
+                borderColor: 'rgba(239, 68, 68, 0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+              }}>
+                <Box sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  bgcolor: '#ef4444',
+                  animation: 'pulse 1.5s ease-in-out infinite',
+                }} />
+                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#dc2626' }}>
+                  Extension Load Errors
+                </Typography>
+              </Box>
+              <Box sx={{ p: 3 }}>
+                <Paper sx={{
+                  bgcolor: 'rgba(255, 255, 255, 0.5)',
+                  border: 1,
+                  borderColor: 'rgba(239, 68, 68, 0.1)',
+                  borderRadius: '12px',
+                  p: 2,
+                  fontSize: '0.75rem',
+                  fontWeight: 'bold',
+                  color: '#dc2626',
+                  overflow: 'auto',
+                  fontFamily: 'monospace',
+                  whiteSpace: 'pre-wrap',
+                }}>
                   {JSON.stringify(data.load_errors, null, 2)}
-                </pre>
-              </div>
-            </div>
+                </Paper>
+              </Box>
+            </Paper>
           )}
         </>
       )}
-    </div>
+    </Container>
   );
 }
