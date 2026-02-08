@@ -13,6 +13,7 @@ dist-ssr
 *.local
 .env*
 backend/library.json
+backend/data/pyyomi.db
 plans/
 docs/
 railway.json
