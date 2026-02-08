@@ -8,7 +8,6 @@ from app.api import manga, sources, proxy
 app = FastAPI()
 
 
-
 def create_app() -> FastAPI:
     """
     Construct the FastAPI application and register API routes.
@@ -35,6 +34,12 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Initialize database
+    from app.db import Base, engine
+    from app.db.migrations import migrate_from_json
+    Base.metadata.create_all(bind=engine)
+    migrate_from_json()
 
     # load all extensions at application startup
     initialize_extensions()

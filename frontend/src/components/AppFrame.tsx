@@ -23,23 +23,27 @@ import {
   Settings,
   Download,
   RefreshCw,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { useColorMode } from '../theme/ColorModeContext';
 
 const drawerWidth = 240;
 
 const menuItems = [
-  { text: 'Browse', icon: <BookOpen className="w-5 h-5" />, path: '/browse' },
-  { text: 'Library', icon: <Library className="w-5 h-5" />, path: '/library' },
-  { text: 'Sources', icon: <Settings className="w-5 h-5" />, path: '/sources' },
-  { text: 'Downloads', icon: <Download className="w-5 h-5" />, path: '/downloads' },
-  { text: 'Updates', icon: <RefreshCw className="w-5 h-5" />, path: '/updates' },
-  { text: 'Settings', icon: <Settings className="w-5 h-5" />, path: '/settings' },
+  { text: 'Browse', icon: <BookOpen sx={{ width: 20, height: 20 }} />, path: '/browse' },
+  { text: 'Library', icon: <Library sx={{ width: 20, height: 20 }} />, path: '/library' },
+  { text: 'Sources', icon: <Settings sx={{ width: 20, height: 20 }} />, path: '/sources' },
+  { text: 'Downloads', icon: <Download sx={{ width: 20, height: 20 }} />, path: '/downloads' },
+  { text: 'Updates', icon: <RefreshCw sx={{ width: 20, height: 20 }} />, path: '/updates' },
+  { text: 'Settings', icon: <Settings sx={{ width: 20, height: 20 }} />, path: '/settings' },
 ];
 
 export default function AppFrame({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const theme = useTheme();
+  const { mode, toggleColorMode } = useColorMode();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const location = useLocation();
 
@@ -55,7 +59,7 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
         </Typography>
         {isMobile && (
           <IconButton onClick={handleDrawerToggle}>
-            <CloseIcon className="w-5 h-5" />
+            <CloseIcon sx={{ width: 20, height: 20 }} />
           </IconButton>
         )}
       </Box>
@@ -101,9 +105,11 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
       <CssBaseline />
       <AppBar
         position="fixed"
+        color="default"
         sx={{
           width: { md: `calc(100% - ${drawerWidth}px)` },
           ml: { md: `${drawerWidth}px` },
+          color: mode === 'light' ? '#111827' : '#f3f4f6',
         }}
       >
         <Toolbar sx={{ minHeight: '64px !important' }}>
@@ -113,14 +119,26 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
               aria-label="open drawer"
               edge="start"
               onClick={handleDrawerToggle}
-              sx={{ mr: 2, display: { md: 'none' } }}
+              sx={{ mr: 2, display: { md: 'none' }, color: 'inherit' }}
             >
-              <MenuIcon className="w-5 h-5" />
+              <MenuIcon sx={{ width: 20, height: 20 }} />
             </IconButton>
           )}
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             PyYomi
           </Typography>
+          <IconButton
+            color="inherit"
+            onClick={toggleColorMode}
+            sx={{ ml: 1 }}
+            aria-label="toggle color mode"
+          >
+            {mode === 'dark' ? (
+              <Sun sx={{ width: 20, height: 20 }} />
+            ) : (
+              <Moon sx={{ width: 20, height: 20 }} />
+            )}
+          </IconButton>
         </Toolbar>
       </AppBar>
       

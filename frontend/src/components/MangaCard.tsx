@@ -2,6 +2,11 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Manga } from '../types';
 import { Star, BookOpen } from 'lucide-react';
+import {
+  Box,
+  Typography,
+  IconButton,
+} from '@mui/material';
 
 interface MangaCardProps {
     manga: Manga;
@@ -13,48 +18,134 @@ export const MangaCard: React.FC<MangaCardProps> = ({ manga, isFavorite, toggleF
     const navigate = useNavigate();
     
     return (
-        <div 
+        <Box
             onClick={() => navigate(`/manga/${manga.id}`)}
-            className="group cursor-pointer relative flex flex-col h-full"
+            sx={{
+                cursor: 'pointer',
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+                '&:hover': {
+                    '& .overlay': { opacity: 1 },
+                    '& .cover-img': { transform: 'scale(1.1)' },
+                },
+            }}
         >
-            <div className="aspect-[2/3] overflow-hidden rounded-xl bg-zinc-800 mb-3 relative shadow-lg ring-1 ring-white/5 group-hover:ring-indigo-500/50 transition-all">
-                <img 
-                    src={manga.coverUrl} 
-                    alt={manga.title} 
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+            <Box
+                sx={{
+                    aspectRatio: '2/3',
+                    overflow: 'hidden',
+                    borderRadius: 2,
+                    bgcolor: '#3f3f46',
+                    mb: 1.5,
+                    position: 'relative',
+                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                }}
+            >
+                <Box
+                    component="img"
+                    src={manga.coverUrl}
+                    alt={manga.title}
+                    className="cover-img"
+                    sx={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        transition: 'transform 0.5s ease',
+                    }}
                     loading="lazy"
                 />
                 
                 {/* Gradient Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
-                     <div className="flex items-center justify-between">
-                         <span className="text-xs font-bold text-white bg-indigo-600 px-2.5 py-1 rounded-lg shadow-lg flex items-center gap-1">
-                            <BookOpen className="w-3 h-3" /> Read
-                         </span>
+                <Box
+                    className="overlay"
+                    sx={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.2) 50%, transparent 100%)',
+                        opacity: 0,
+                        transition: 'opacity 0.3s ease',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'flex-end',
+                        p: 1.5,
+                    }}
+                >
+                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                         <Box
+                            sx={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.5,
+                                px: 1.25,
+                                py: 0.5,
+                                borderRadius: 1,
+                                bgcolor: '#4f46e5',
+                                color: '#fff',
+                                fontSize: '0.75rem',
+                                fontWeight: 700,
+                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+                            }}
+                         >
+                            <Box sx={{ width: 12, height: 12 }}><BookOpen /></Box>
+                            Read
+                         </Box>
                          
                          {toggleFavorite && (
-                             <button 
+                             <IconButton
                                 onClick={(e) => toggleFavorite(e, manga.id)}
-                                className={`p-2 rounded-full backdrop-blur-md transition-colors shadow-lg ${isFavorite ? 'bg-yellow-500 text-black' : 'bg-white/10 text-white hover:bg-white/20'}`}
+                                sx={{
+                                    p: 1,
+                                    borderRadius: '50%',
+                                    bgcolor: isFavorite ? '#eab308' : 'rgba(255,255,255,0.1)',
+                                    backdropFilter: 'blur(8px)',
+                                    transition: 'colors 0.2s ease',
+                                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+                                    color: isFavorite ? '#000' : '#fff',
+                                    '&:hover': { bgcolor: isFavorite ? '#facc15' : 'rgba(255,255,255,0.2)' },
+                                }}
                              >
-                                <Star className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
-                             </button>
+                                 <Box sx={{ width: 16, height: 16, fill: isFavorite ? 'currentColor' : 'none' }}>
+                                   <Star />
+                                 </Box>
+                             </IconButton>
                          )}
-                     </div>
-                </div>
-            </div>
+                     </Box>
+                </Box>
+            </Box>
             
-            <div className="space-y-1">
-                <h3 className="font-semibold text-zinc-100 truncate group-hover:text-indigo-400 transition-colors leading-tight">
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                <Typography variant="body2" sx={{
+                    fontWeight: 600,
+                    color: '#e4e4e7',
+                    truncate: true,
+                    transition: 'color 0.2s ease',
+                    lineHeight: 1.3,
+                    '&:hover': { color: '#818cf8' },
+                }}>
                     {manga.title}
-                </h3>
-                <div className="flex items-center justify-between text-xs text-zinc-500">
-                    <span className="truncate max-w-[60%]">{manga.genres[0]}</span>
-                    <span className={`px-1.5 py-0.5 rounded ${manga.status === 'Ongoing' ? 'bg-green-900/30 text-green-400' : 'bg-blue-900/30 text-blue-400'}`}>
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Typography variant="caption" sx={{ color: '#71717a', truncate: true, maxWidth: '60%' }}>
+                        {manga.genres[0]}
+                    </Typography>
+                    <Box
+                        sx={{
+                            px: 0.75,
+                            py: 0.25,
+                            borderRadius: 0.5,
+                            bgcolor: manga.status === 'Ongoing' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(59, 130, 246, 0.3)',
+                            color: manga.status === 'Ongoing' ? '#4ade80' : '#60a5fa',
+                            fontSize: '0.625rem',
+                            fontWeight: 500,
+                        }}
+                    >
                         {manga.status}
-                    </span>
-                </div>
-            </div>
-        </div>
+                    </Box>
+                </Box>
+            </Box>
+        </Box>
     );
 };

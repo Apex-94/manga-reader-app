@@ -46,9 +46,9 @@ const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick }) => {
           bgcolor: theme.palette.action.hover,
         },
       }}>
-        {React.cloneElement(icon as React.ReactElement<{ className?: string }>, {
-          className: 'w-6 h-6',
-        })}
+        <Box sx={{ width: 24, height: 24 }}>
+          {React.cloneElement(icon as React.ReactElement, {})}
+        </Box>
       </Box>
       <Typography variant="caption" sx={{
         fontSize: '0.625rem',
@@ -119,7 +119,9 @@ export const Navbar: React.FC = () => {
                 }}
                 onClick={() => navigate('/')}
             >
-                <BookOpen className="text-white w-5 h-5" />
+                <Box sx={{ width: 20, height: 20, color: '#fff' }}>
+                  <BookOpen />
+                </Box>
             </Box>
             
             <Box sx={{
