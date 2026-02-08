@@ -5,6 +5,26 @@
 
 ---
 
+## ✅ RECENT FIXES (February 8, 2026)
+
+### Backend Fixes
+- ✅ Fixed `ModuleNotFoundError: No module named 'sqlmodel'`
+
+### Frontend Fixes
+- ✅ Fixed CORS error (added localhost:5174 to allowed origins)
+- ✅ Fixed MangaCard TypeError (`coverUrl` property access)
+- ✅ Fixed URL encoding issues for manga navigation
+- ✅ Fixed Reader page sidebar overlap (moved reader outside AppFrame)
+- ✅ Fixed theme persistence (moved Providers to root level)
+- ✅ Added "Add to Library" button functionality to MangaCard
+- ✅ Redesigned MangaCard UI:
+  - Improved text contrast for readability
+  - Cleaner button layout and alignment
+  - Better spacing and padding
+  - Moved status badge to top-right corner
+
+---
+
 ## ✅ COMPLETED TASKS
 
 ### Desktop Build Fixes
