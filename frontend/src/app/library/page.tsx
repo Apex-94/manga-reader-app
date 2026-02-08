@@ -126,14 +126,14 @@ export default function LibraryPage() {
     const { data, isLoading } = useQuery({
         queryKey: ["library"],
         queryFn: async () => {
-            const resp = await api.get(`/library`);
+            const resp = await api.get(`/library/`);
             return resp.data as LibraryItem[];
         },
     });
 
     const removeMutation = useMutation({
         mutationFn: async (url: string) => {
-            await api.delete(`/library`, { params: { url } });
+            await api.delete(`/library/`, { params: { url } });
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["library"] });

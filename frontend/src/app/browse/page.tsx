@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, getProxyUrl } from "../../lib/api";
 import { Sparkles, BookOpen, Filter, SlidersHorizontal } from "lucide-react";
+import { MangaCard } from "../../components/MangaCard";
 import {
   Box,
   Card,
@@ -157,137 +158,18 @@ function HeroSection({ item }: { item: MangaCard }) {
 }
 
 function MangaCardComponent({ item, onAdd }: { key?: any, item: MangaCard, onAdd: (item: MangaCard) => void }) {
-  const [imageError, setImageError] = React.useState(false);
-
+  const handleAdd = () => onAdd(item);
+  
   return (
-    <Card sx={{
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      borderRadius: '16px',
-      overflow: 'hidden',
-      border: '1px solid',
-      borderColor: { light: '#e5e7eb', dark: '#374151' },
-      bgcolor: { light: 'white', dark: '#1f2937' },
-      transition: 'all 0.2s ease',
-      '&:hover': {
-        boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)',
-        borderColor: 'rgba(79, 70, 229, 0.3)',
-      }
-    }}>
-      <Box sx={{ position: 'relative', aspectRatio: '2/3', bgcolor: { light: '#f3f4f6', dark: '#374151' }, overflow: 'hidden' }}>
-        {item.thumbnail_url && !imageError ? (
-          <img
-            src={getProxyUrl(item.thumbnail_url, item.source)}
-            alt={item.title}
-            loading="lazy"
-            onError={() => setImageError(true)}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.5s ease' }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-          />
-        ) : (
-          <Box sx={{
-            width: '100%',
-            height: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'linear-gradient(to bottom right, #d1d5db, #9ca3af)',
-          }}>
-            <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" sx={{ mb: 1 }}>📚</Typography>
-              <Typography variant="caption" sx={{ color: { light: '#6b7280', dark: '#d1d5db' } }}>No image</Typography>
-            </Box>
-          </Box>
-        )}
-        <Box sx={{
-          position: 'absolute',
-          inset: 0,
-          background: 'linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%)',
-          opacity: 0,
-          transition: 'opacity 0.3s ease',
-          '&:hover': {
-            opacity: 1,
-          }
-        }} />
-        <IconButton
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onAdd(item);
-          }}
-          sx={{
-            position: 'absolute',
-            top: 8,
-            right: 8,
-            bgcolor: '#4f46e5',
-            color: 'white',
-            opacity: 0,
-            transform: 'translateY(8px)',
-            transition: 'all 0.2s ease',
-            '&:hover': {
-              bgcolor: '#4338ca',
-            },
-            '&:hover, &.Mui-focusVisible': {
-              opacity: 1,
-              transform: 'translateY(0)',
-            },
-            '&.MuiTouchRipple-root': {
-              opacity: 1,
-              transform: 'translateY(0)',
-            }
-          }}
-          title="Add to Library"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" style={{ width: 16, height: 16 }}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-        </IconButton>
-      </Box>
-      <CardContent sx={{ p: 2, flexGrow: 1 }}>
-        <Link
-          to={`/manga?url=${encodeURIComponent(item.url)}&source=${encodeURIComponent(item.source)}`}
-          style={{ textDecoration: 'none', color: 'inherit' }}
-        >
-          <Typography
-            variant="body2"
-            sx={{
-              fontWeight: 'bold',
-              color: { light: '#111827', dark: '#f3f4f6' },
-              mb: 0.5,
-              lineHeight: 1.4,
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-              '&:hover': {
-                color: '#6366f1',
-              }
-            }}
-          >
-            {item.title}
-          </Typography>
-          <Typography
-            variant="caption"
-            sx={{
-              color: { light: '#6b7280', dark: '#d1d5db' },
-              mb: 0.5,
-            }}
-          >
-            {item.genres?.slice(0, 2).join(", ")}
-          </Typography>
-          <Typography
-            variant="caption"
-            sx={{
-              color: { light: '#6b7280', dark: '#d1d5db' },
-            }}
-          >
-            {item.source}
-          </Typography>
-        </Link>
-      </CardContent>
-    </Card>
+    <MangaCard
+      title={item.title}
+      url={item.url}
+      thumbnail_url={item.thumbnail_url}
+      source={item.source}
+      genres={item.genres}
+      onAction={handleAdd}
+      actionIcon="add"
+    />
   );
 }
 
@@ -506,31 +388,6 @@ export default function BrowsePage() {
             >
               <SlidersHorizontal size={20} />
             </IconButton>
-          </Box>
-
-          <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-            <TextField
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search..."
-              size="small"
-              sx={{
-                width: 256,
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '12px',
-                  '& fieldset': {
-                    borderColor: { light: '#d1d5db', dark: '#4b5563' },
-                  },
-                  '&:hover fieldset': {
-                    borderColor: { light: '#9ca3af', dark: '#6b7280' },
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: '#4f46e5',
-                  },
-                },
-              }}
-              onKeyPress={(e) => e.key === 'Enter' && refetch()}
-            />
           </Box>
         </Box>
       </Paper>

@@ -8,6 +8,8 @@ import SourcesPage from './app/sources/page';
 import DownloadsPage from './app/downloads/page';
 import UpdatesPage from './app/updates/page';
 import SettingsPage from './app/settings/page';
+import CategoriesPage from './components/CategoriesPage';
+import HistoryPage from './components/HistoryPage';
 
 export default function App() {
   return (
@@ -17,6 +19,8 @@ export default function App() {
           <Route path="/" element={<Navigate to="/browse" replace />} />
           <Route path="/browse" element={<BrowsePage />} />
           <Route path="/library" element={<LibraryPage />} />
+          <Route path="/categories" element={<CategoriesPage />} />
+          <Route path="/history" element={<HistoryPage />} />
           <Route path="/manga" element={<MangaPage />} />
           <Route path="/reader" element={<ReaderPage />} />
           <Route path="/sources" element={<SourcesPage />} />

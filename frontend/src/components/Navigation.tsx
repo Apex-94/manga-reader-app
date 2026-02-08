@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home as HomeIcon, Search, Library, BookOpen } from 'lucide-react';
+import { Home as HomeIcon, Search, Library, BookOpen, Folder, History } from 'lucide-react';
 import {
   Box,
   Button,
@@ -134,9 +134,11 @@ export const Navbar: React.FC = () => {
                 <NavItem icon={<HomeIcon />} label="Home" active={isActive('/')} onClick={() => navigate('/')} />
                 <NavItem icon={<Search />} label="Search" active={isActive('/search')} onClick={() => navigate('/search')} />
                 <NavItem icon={<Library />} label="Library" active={isActive('/library')} onClick={() => navigate('/library')} />
+                <NavItem icon={<Folder />} label="Categories" active={isActive('/categories')} onClick={() => navigate('/categories')} />
+                <NavItem icon={<History />} label="History" active={isActive('/history')} onClick={() => navigate('/history')} />
             </Box>
         </Paper>
-    );
+     );
 };
 
 export const MobileNav: React.FC = () => {
@@ -167,6 +169,8 @@ export const MobileNav: React.FC = () => {
              <NavItem icon={<HomeIcon />} label="Home" active={isActive('/')} onClick={() => navigate('/')} />
              <NavItem icon={<Search />} label="Search" active={isActive('/search')} onClick={() => navigate('/search')} />
              <NavItem icon={<Library />} label="Library" active={isActive('/library')} onClick={() => navigate('/library')} />
+             <NavItem icon={<Folder />} label="Categories" active={isActive('/categories')} onClick={() => navigate('/categories')} />
+             <NavItem icon={<History />} label="History" active={isActive('/history')} onClick={() => navigate('/history')} />
         </Paper>
     );
 };

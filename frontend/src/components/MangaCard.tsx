@@ -12,9 +12,11 @@ interface MangaCardProps {
     manga: Manga;
     isFavorite?: boolean;
     toggleFavorite?: (e: React.MouseEvent, id: string) => void;
+    onRemove?: () => void;
+    showRemoveButton?: boolean;
 }
 
-export const MangaCard: React.FC<MangaCardProps> = ({ manga, isFavorite, toggleFavorite }) => {
+export const MangaCard: React.FC<MangaCardProps> = ({ manga, isFavorite, toggleFavorite, onRemove, showRemoveButton }) => {
     const navigate = useNavigate();
     
     return (
@@ -93,34 +95,57 @@ export const MangaCard: React.FC<MangaCardProps> = ({ manga, isFavorite, toggleF
                             Read
                          </Box>
                          
-                         {toggleFavorite && (
-                             <IconButton
-                                onClick={(e) => toggleFavorite(e, manga.id)}
-                                sx={{
-                                    p: 1,
-                                    borderRadius: '50%',
-                                    bgcolor: isFavorite ? '#eab308' : 'rgba(255,255,255,0.1)',
-                                    backdropFilter: 'blur(8px)',
-                                    transition: 'colors 0.2s ease',
-                                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
-                                    color: isFavorite ? '#000' : '#fff',
-                                    '&:hover': { bgcolor: isFavorite ? '#facc15' : 'rgba(255,255,255,0.2)' },
-                                }}
-                             >
-                                 <Box sx={{ width: 16, height: 16, fill: isFavorite ? 'currentColor' : 'none' }}>
-                                   <Star />
-                                 </Box>
-                             </IconButton>
-                         )}
+                          {toggleFavorite && (
+                              <IconButton
+                                 onClick={(e) => toggleFavorite(e, manga.id)}
+                                 sx={{
+                                     p: 1,
+                                     borderRadius: '50%',
+                                     bgcolor: isFavorite ? '#eab308' : 'rgba(255,255,255,0.1)',
+                                     backdropFilter: 'blur(8px)',
+                                     transition: 'colors 0.2s ease',
+                                     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+                                     color: isFavorite ? '#000' : '#fff',
+                                     '&:hover': { bgcolor: isFavorite ? '#facc15' : 'rgba(255,255,255,0.2)' },
+                                 }}
+                              >
+                                  <Box sx={{ width: 16, height: 16, fill: isFavorite ? 'currentColor' : 'none' }}>
+                                    <Star />
+                                  </Box>
+                              </IconButton>
+                          )}
+                          {showRemoveButton && onRemove && (
+                              <IconButton
+                                  onClick={onRemove}
+                                  sx={{
+                                      p: 1,
+                                      borderRadius: '50%',
+                                      bgcolor: 'rgba(239, 68, 68, 0.3)',
+                                      backdropFilter: 'blur(8px)',
+                                      transition: 'colors 0.2s ease',
+                                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.3)',
+                                      color: '#ef4444',
+                                      '&:hover': { bgcolor: 'rgba(239, 68, 68, 0.5)' },
+                                  }}
+                              >
+                                  <Box sx={{ width: 16, height: 16 }}>
+                                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                          <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                      </svg>
+                                  </Box>
+                              </IconButton>
+                          )}
                      </Box>
                 </Box>
             </Box>
             
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                <Typography variant="body2" sx={{
+                 <Typography variant="body2" sx={{
                     fontWeight: 600,
                     color: '#e4e4e7',
-                    truncate: true,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                     transition: 'color 0.2s ease',
                     lineHeight: 1.3,
                     '&:hover': { color: '#818cf8' },
@@ -128,7 +153,7 @@ export const MangaCard: React.FC<MangaCardProps> = ({ manga, isFavorite, toggleF
                     {manga.title}
                 </Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Typography variant="caption" sx={{ color: '#71717a', truncate: true, maxWidth: '60%' }}>
+                    <Typography variant="caption" sx={{ color: '#71717a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '60%' }}>
                         {manga.genres[0]}
                     </Typography>
                     <Box

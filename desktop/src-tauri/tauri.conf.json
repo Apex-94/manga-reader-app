@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "identifier": "com.pyyomi.desktop",
   "build": {
-    "frontendDist": "../dist",
+    "frontendDist": "../../frontend/dist",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "cd ../backend && venv\\Scripts\\activate.bat && pyinstaller pyinstaller.spec"
+    "beforeDevCommand": "cd ../frontend && npm run dev",
+    "beforeBuildCommand": "cd ../frontend && npm run build && cd ../backend && venv\\Scripts\\activate.bat && pyinstaller pyinstaller.spec"
   },
   "app": {
     "windows": [

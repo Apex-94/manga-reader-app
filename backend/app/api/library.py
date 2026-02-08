@@ -17,7 +17,7 @@ class LibraryItem(BaseModel):
     class Config:
         from_attributes = True
 
-@router.get("/", response_model=List[Manga])
+@router.get("", response_model=List[Manga])
 async def get_library(db: Session = Depends(get_session)):
     """
     Get all manga from the library.
@@ -26,7 +26,7 @@ async def get_library(db: Session = Depends(get_session)):
     manga_list = [entry.manga for entry in library_entries]
     return manga_list
 
-@router.post("/", response_model=Manga)
+@router.post("", response_model=Manga)
 async def add_to_library(item: LibraryItem, db: Session = Depends(get_session)):
     """
     Add a manga to the library.
@@ -73,7 +73,7 @@ async def add_to_library(item: LibraryItem, db: Session = Depends(get_session)):
     
     return manga
 
-@router.delete("/")
+@router.delete("")
 async def remove_from_library(url: str, db: Session = Depends(get_session)):
     """
     Remove a manga from the library.

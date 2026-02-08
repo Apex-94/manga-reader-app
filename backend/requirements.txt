@@ -5,3 +5,4 @@ beautifulsoup4==4.12.2
 lxml==6.0.2
 sqlmodel==0.0.32
 alembic==1.13.0
+APScheduler==3.10.4
