@@ -2728,6 +2728,7 @@ dependencies = [
 name = "pyyomi_desktop"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "log",
  "portpicker",
  "reqwest 0.11.27",
