@@ -31,19 +31,17 @@ const PagesWithAppFrame = () => (
 );
 
 // Reader page without AppFrame for full-screen experience
-const ReaderWithoutAppFrame = () => (
-  <Providers>
-    <ReaderPage />
-  </Providers>
-);
+const ReaderWithoutAppFrame = () => <ReaderPage />;
 
 export default function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/reader/*" element={<ReaderWithoutAppFrame />} />
-        <Route path="/*" element={<PagesWithAppFrame />} />
-      </Routes>
-    </Router>
+    <Providers>
+      <Router>
+        <Routes>
+          <Route path="/reader/*" element={<ReaderWithoutAppFrame />} />
+          <Route path="/*" element={<PagesWithAppFrame />} />
+        </Routes>
+      </Router>
+    </Providers>
   );
 }

@@ -158,7 +158,17 @@ function HeroSection({ item }: { item: MangaCard }) {
 }
 
 function MangaCardComponent({ item, onAdd }: { key?: any, item: MangaCard, onAdd: (item: MangaCard) => void }) {
-  const handleAdd = () => onAdd(item);
+  const handleAdd = (e: React.MouseEvent, id: string) => {
+    // Convert browse manga format to library manga format
+    onAdd({
+      title: item.title,
+      url: item.url,
+      thumbnail_url: item.thumbnail_url,
+      source: item.source || '',
+      description: item.description,
+      genres: item.genres || [],
+    });
+  };
   
   return (
     <MangaCard
@@ -176,6 +186,7 @@ function MangaCardComponent({ item, onAdd }: { key?: any, item: MangaCard, onAdd
       }}
       isFavorite={false}
       toggleFavorite={undefined}
+      onAddToLibrary={handleAdd}
     />
   );
 }
