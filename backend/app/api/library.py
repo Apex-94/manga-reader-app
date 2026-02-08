@@ -2,8 +2,9 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
-from sqlalchemy.orm import Session
-from app.db import get_db, Manga, Library
+from sqlmodel import Session, select
+from app.db.database import get_session
+from app.db.models import Manga, LibraryEntry
 
 router = APIRouter()
 
@@ -16,31 +17,31 @@ class LibraryItem(BaseModel):
     class Config:
         from_attributes = True
 
-@router.get("/", response_model=List[LibraryItem])
-async def get_library(db: Session = Depends(get_db)):
+@router.get("/", response_model=List[Manga])
+async def get_library(db: Session = Depends(get_session)):
     """
     Get all manga from the library.
     """
-    library_items = db.query(Library).all()
-    manga_list = [item.manga for item in library_items]
+    library_entries = db.exec(select(LibraryEntry)).all()
+    manga_list = [entry.manga for entry in library_entries]
     return manga_list
 
-@router.post("/", response_model=LibraryItem)
-async def add_to_library(item: LibraryItem, db: Session = Depends(get_db)):
+@router.post("/", response_model=Manga)
+async def add_to_library(item: LibraryItem, db: Session = Depends(get_session)):
     """
     Add a manga to the library.
     """
     # Check if manga already exists
-    existing_manga = db.query(Manga).filter(Manga.url == item.url).first()
+    existing_manga = db.exec(select(Manga).where(Manga.url == item.url)).first()
     
     if existing_manga:
         # Check if already in library
-        existing_library_item = db.query(Library).filter(Library.manga_id == existing_manga.id).first()
+        existing_library_item = db.exec(select(LibraryEntry).where(LibraryEntry.manga_id == existing_manga.id)).first()
         if existing_library_item:
             return existing_manga
         else:
             # Add to library
-            library_item = Library(
+            library_item = LibraryEntry(
                 manga_id=existing_manga.id,
                 added_at=datetime.utcnow()
             )
@@ -62,7 +63,7 @@ async def add_to_library(item: LibraryItem, db: Session = Depends(get_db)):
     db.flush()  # Get manga id
     
     # Add to library
-    library_item = Library(
+    library_item = LibraryEntry(
         manga_id=manga.id,
         added_at=datetime.utcnow()
     )
@@ -73,18 +74,18 @@ async def add_to_library(item: LibraryItem, db: Session = Depends(get_db)):
     return manga
 
 @router.delete("/")
-async def remove_from_library(url: str, db: Session = Depends(get_db)):
+async def remove_from_library(url: str, db: Session = Depends(get_session)):
     """
     Remove a manga from the library.
     """
     # Find manga by URL
-    manga = db.query(Manga).filter(Manga.url == url).first()
+    manga = db.exec(select(Manga).where(Manga.url == url)).first()
     
     if not manga:
         raise HTTPException(status_code=404, detail="Item not found")
     
     # Remove from library
-    library_item = db.query(Library).filter(Library.manga_id == manga.id).first()
+    library_item = db.exec(select(LibraryEntry).where(LibraryEntry.manga_id == manga.id)).first()
     
     if library_item:
         db.delete(library_item)

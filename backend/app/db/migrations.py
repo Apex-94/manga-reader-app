@@ -5,14 +5,17 @@ Database migration utilities for the Manga Reader application.
 import json
 import os
 from datetime import datetime
-from app.db import Base, engine, SessionLocal, Manga, Library
+from sqlmodel import Session, select
+from app.db.database import init_db, engine
+from app.db.models import Manga, LibraryEntry
 
 
 def init_db():
     """
     Initialize the database and create all tables.
     """
-    Base.metadata.create_all(bind=engine)
+    from app.db.models import SQLModel
+    SQLModel.metadata.create_all(bind=engine)
     print("Database initialized successfully")
 
 
@@ -34,14 +37,15 @@ def migrate_from_json():
         return
 
     # Create session
-    db = SessionLocal()
+    session = Session(engine)
 
     try:
         # Check if we have any existing records to avoid duplicates
-        existing_manga = db.query(Manga).all()
-        existing_urls = {m.url for m in existing_manga}
+        existing = session.exec(select(Manga)).all()
+        existing_urls = {m.url for m in existing}
 
         # Migrate each item
+        migrated_count = 0
         for item in data:
             if item["url"] not in existing_urls:
                 manga = Manga(
@@ -52,27 +56,33 @@ def migrate_from_json():
                     created_at=datetime.utcnow(),
                     updated_at=datetime.utcnow()
                 )
-                db.add(manga)
-                db.flush()  # Get manga id
+                session.add(manga)
+                session.flush()  # Get manga id
 
                 # Add to library
-                library_item = Library(
+                library_item = LibraryEntry(
                     manga_id=manga.id,
                     added_at=datetime.utcnow()
                 )
-                db.add(library_item)
+                session.add(library_item)
 
                 existing_urls.add(item["url"])
+                migrated_count += 1
                 print(f"Migrated: {item['title']}")
 
-        db.commit()
-        print(f"Successfully migrated {len(data)} items from library.json")
+        session.commit()
+        print(f"Successfully migrated {migrated_count} items from library.json")
+
+        # Backup the JSON file after successful migration
+        if migrated_count > 0:
+            os.rename("library.json", "library.json.bak")
+            print(f"Backed up library.json to library.json.bak")
 
     except Exception as e:
-        db.rollback()
+        session.rollback()
         print(f"Error during migration: {e}")
     finally:
-        db.close()
+        session.close()
 
 
 def main():

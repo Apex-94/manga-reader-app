@@ -3,15 +3,21 @@ Database module for the Manga Reader application.
 Provides database configuration, models, and migration utilities.
 """
 
-from .database import Base, engine, get_db, SessionLocal
-from .models import Manga, Chapter, Library
+from .database import SQLModel, engine, get_session, init_db
+from .models import Manga, Chapter, LibraryEntry, ReadingProgress, History, Category, MangaCategory, Download, Setting
 
 __all__ = [
-    "Base",
+    "SQLModel",
     "engine",
-    "get_db",
-    "SessionLocal",
+    "get_session",
+    "init_db",
     "Manga",
     "Chapter",
-    "Library"
+    "LibraryEntry",
+    "ReadingProgress",
+    "History",
+    "Category",
+    "MangaCategory",
+    "Download",
+    "Setting"
 ]

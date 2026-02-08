@@ -1,29 +1,21 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlmodel import create_engine, Session, SQLModel
+from pathlib import Path
 import os
 
-# Database file path
-SQLALCHEMY_DATABASE_URL = "sqlite:///./library.db"
+# Database file path - use data directory for desktop app
+DATA_DIR = os.getenv("DATA_DIR", "./data")
+DB_PATH = Path(DATA_DIR) / "pyyomi.db"
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-# Create engine - connect_args needed for SQLite to use single connection
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-
-# Create session local class
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-# Create base class for declarative models
-Base = declarative_base()
+# Create engine
+engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 
 
-def get_db():
-    """
-    Dependency to get database session.
-    """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+def get_session() -> Session:
+    """Dependency to get database session."""
+    return Session(engine)
+
+
+def init_db():
+    """Initialize the database and create all tables."""
+    SQLModel.metadata.create_all(bind=engine)

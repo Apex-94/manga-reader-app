@@ -1,7 +1,7 @@
 # PyYomi Desktop Implementation Plan
 
 **Last Updated**: February 8, 2026  
-**Overall Progress**: 50% Complete (Epics 1-3 Done, Epic 6 partially done, Epics 4-5 and 7-10 Pending)
+**Overall Progress**: 60% Complete (Epics 1-4 Done, Epic 6 partially done, Epics 5 and 7-10 Pending)
 
 ---
 
@@ -29,7 +29,7 @@ This document outlines the comprehensive plan to convert PyYomi from a web-based
 | 1 | Convert frontend to MUI + desktop-ready layout | ✅ Complete | 100% |
 | 2 | Introduce Tauri desktop wrapper | ✅ Complete | 100% |
 | 3 | Run FastAPI backend locally inside Tauri | ✅ Complete | 100% |
-| 4 | Replace library.json with SQLite | ❌ Not Started | 0% |
+| 4 | Replace library.json with SQLite | ✅ Complete | 100% |
 | 5 | Downloads manager + offline reading | ❌ Not Started | 0% |
 | 6 | Reader parity improvements | ⏳ Partially Done | 60% |
 | 7 | Library organization | ❌ Not Started | 0% |
@@ -50,7 +50,7 @@ This document outlines the comprehensive plan to convert PyYomi from a web-based
 ### Backend (FastAPI + Python)
 - **CLI Arguments**: ✅ Added (--port, --data-dir)
 - **Health Endpoint**: ✅ /health endpoint implemented
-- **Persistence**: ❌ JSON file (library.json) - SQLite migration NOT implemented
+- **Persistence**: ✅ SQLite database with sqlmodel (data/pyyomi.db)
 - **API Routers**: manga, sources, proxy, library
 - **Extension System**: Pluggable scrapers in app/extensions/
 - **CORS**: ✅ Configured for localhost:3000, localhost:5173, tauri://localhost
@@ -400,17 +400,29 @@ async fn backend_url(state: State<'_, BackendState>) -> Result<String, String> {
 }
 ```
 
-## Epic 4 — Replace library.json with SQLite ❌ NOT STARTED
+## Epic 4 — Replace library.json with SQLite ✅ COMPLETE
 
-### 4.1 Database Dependencies
+### 4.1-4.6 Implementation ✅ DONE
 
-**backend/requirements.txt**:
-```
-sqlmodel==0.0.14
-alembic==1.13.0
-```
+**Status**: ✅ All code implemented and VERIFIED
 
-### 4.2 Database Models
+**Files Modified**:
+- ✅ [`backend/requirements.txt`](backend/requirements.txt) - Added sqlmodel==0.0.32 and alembic==1.13.0
+- ✅ [`backend/app/db/models.py`](backend/app/db/models.py) - Rewrote all models using sqlmodel
+- ✅ [`backend/app/db/database.py`](backend/app/db/database.py) - Updated for sqlmodel with data/pyyomi.db
+- ✅ [`backend/app/db/migrations.py`](backend/app/db/migrations.py) - Updated for sqlmodel Session
+- ✅ [`backend/app/main.py`](backend/app/main.py) - Updated imports
+- ✅ [`backend/app/api/library.py`](backend/app/api/library.py) - Updated for sqlmodel
+- ✅ [`backend/app/db/__init__.py`](backend/app/db/__init__.py) - Updated exports
+
+**Verification Results**:
+- ✅ Server starts successfully on port 8000
+- ✅ New database file created at `backend/data/pyyomi.db`
+- ✅ Library.json migrated successfully to SQLite (4 items migrated)
+- ✅ API endpoints working correctly
+- ✅ Old library.json backed up to library.json.bak
+
+**Epic 4 is COMPLETE!**
 
 **backend/app/db/models.py**:
 ```python

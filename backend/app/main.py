@@ -36,9 +36,9 @@ def create_app() -> FastAPI:
     )
 
     # Initialize database
-    from app.db import Base, engine
+    from app.db.database import init_db
     from app.db.migrations import migrate_from_json
-    Base.metadata.create_all(bind=engine)
+    init_db()
     migrate_from_json()
 
     # load all extensions at application startup
