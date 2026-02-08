@@ -186,18 +186,20 @@ export const Reader: React.FC<ReaderProps> = ({
           <Typography sx={{ color: '#71717a' }}>
             End of Chapter {chapter.number}
           </Typography>
-          <Box sx={{ display: 'flex', gap: 2, width: '100%', maxWidth: '28rem' }}>
+          <Box sx={{ display: 'flex', gap: 2, width: '100%', maxWidth: '28rem', justifyContent: 'center' }}>
             <Button
               onClick={(e) => { e.stopPropagation(); onPrevChapter(); }}
               disabled={!hasPrev}
               sx={{
                 flex: 1,
                 py: 1.5,
+                maxWidth: '14rem',
                 bgcolor: '#3f3f46',
                 color: '#e4e4e7',
                 '&:hover': { bgcolor: '#52525b' },
                 '&.Mui-disabled': { opacity: 0.5, cursor: 'not-allowed' },
                 fontWeight: 500,
+                textAlign: 'center',
               }}
             >
               Previous
@@ -208,11 +210,13 @@ export const Reader: React.FC<ReaderProps> = ({
               sx={{
                 flex: 1,
                 py: 1.5,
+                maxWidth: '14rem',
                 bgcolor: '#4f46e5',
                 color: '#fff',
                 '&:hover': { bgcolor: '#6366f1' },
                 '&.Mui-disabled': { opacity: 0.5, cursor: 'not-allowed' },
                 fontWeight: 500,
+                textAlign: 'center',
               }}
             >
               Next Chapter
