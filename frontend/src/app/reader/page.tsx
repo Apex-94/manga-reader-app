@@ -478,24 +478,6 @@ export default function ReaderPage() {
               mode="single"
               source={source}
             />
-            {/* Page Indicator */}
-            <Box sx={{
-              position: 'absolute',
-              bottom: 2,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              bgcolor: 'rgba(0, 0, 0, 0.7)',
-              color: '#d1d5db',
-              px: 2,
-              py: 0.5,
-              borderRadius: 2,
-              fontSize: '0.875rem',
-              fontWeight: 'medium',
-              backdropFilter: 'blur(4px)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-            }}>
-              Page {idx + 1} / {pages.length}
-            </Box>
           </Box>
 
           <Box sx={{
