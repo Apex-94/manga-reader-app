@@ -317,7 +317,7 @@ export default function ReaderPage() {
                 {manga?.title}
               </Typography>
               <Typography variant="caption" sx={{ color: "#9ca3af", display: "block" }}>
-                Chapter {chapter?.number}
+                Chapter {chapter?.number} • Page {idx + 1} of {pages.length}
               </Typography>
             </Box>
           </Box>
