@@ -5,6 +5,9 @@ import LibraryPage from './app/library/page';
 import MangaPage from './app/manga/page';
 import ReaderPage from './app/reader/page';
 import SourcesPage from './app/sources/page';
+import DownloadsPage from './app/downloads/page';
+import UpdatesPage from './app/updates/page';
+import SettingsPage from './app/settings/page';
 
 export default function App() {
   return (
@@ -17,6 +20,9 @@ export default function App() {
           <Route path="/manga" element={<MangaPage />} />
           <Route path="/reader" element={<ReaderPage />} />
           <Route path="/sources" element={<SourcesPage />} />
+          <Route path="/downloads" element={<DownloadsPage />} />
+          <Route path="/updates" element={<UpdatesPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </Layout>
     </Router>
