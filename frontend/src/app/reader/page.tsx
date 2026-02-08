@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
@@ -8,7 +8,6 @@ import { ChevronLeft, ArrowLeft, ArrowRight, Sparkles, Settings2 } from "lucide-
 // Helper component to lazy resolve images
 function PageImage({
   url,
-  chapterUrl,
   index,
   mode,
   source,
@@ -21,7 +20,6 @@ function PageImage({
   key?: any;
 }) {
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
   // Check if URL is already an image (optimization)
@@ -43,7 +41,6 @@ function PageImage({
       return;
     }
 
-    setLoading(true);
     api
       .get("/manga/resolve", {
         params: { url, source },
@@ -54,9 +51,6 @@ function PageImage({
       .catch((err) => {
         console.error("Failed to resolve image", err);
         setError(true);
-      })
-      .finally(() => {
-        setLoading(false);
       });
   }, [url, isImage, proxyUrl]);
 

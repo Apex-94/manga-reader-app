@@ -10,7 +10,7 @@ export interface Manga {
   id: string;
   title: string;
   altTitle: string;
-  author: string;
+  author: string | null;
   status: 'Ongoing' | 'Completed' | 'Hiatus';
   genres: string[];
   description: string;
