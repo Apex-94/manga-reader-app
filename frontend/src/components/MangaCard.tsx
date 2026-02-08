@@ -21,7 +21,7 @@ export const MangaCard: React.FC<MangaCardProps> = ({ manga, isFavorite, toggleF
     
     return (
         <Box
-            onClick={() => navigate(`/manga/${manga.id}`)}
+            onClick={() => navigate(`/manga?url=${encodeURIComponent(manga.id)}`)}
             sx={{
                 cursor: 'pointer',
                 position: 'relative',
