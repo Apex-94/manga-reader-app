@@ -1,4 +1,3 @@
-import React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, getProxyUrl } from "../../lib/api";
@@ -11,7 +10,7 @@ interface LibraryItem {
     source: string;
 }
 
-function Card({ key, item, onRemove }: { key?: any, item: LibraryItem, onRemove: (url: string) => void }) {
+function Card({ item, onRemove }: { key?: any, item: LibraryItem, onRemove: (url: string) => void }) {
     return (
         <div className="block rounded-xl overflow-hidden border bg-white dark:bg-gray-800 dark:border-gray-700 hover:shadow-lg transition-all relative group">
             <Link
