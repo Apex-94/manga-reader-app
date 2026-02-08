@@ -6,7 +6,9 @@ from app.extensions.loader import registry, initialize_extensions
 
 router = APIRouter()
 
-LOG_FILE = "./data/backend.log"
+# Use data directory based on environment or default
+DATA_DIR = os.environ.get("PYYOMI_DATA_DIR", "./data")
+LOG_FILE = os.path.join(DATA_DIR, "backend.log")
 
 
 class ActiveSourceUpdate(BaseModel):

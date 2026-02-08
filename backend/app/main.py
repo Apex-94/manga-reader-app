@@ -1,6 +1,7 @@
 # app/main.py
 import os
 import sys
+import argparse
 import logging
 from datetime import datetime
 from fastapi import FastAPI
@@ -10,20 +11,19 @@ from app.extensions.loader import initialize_extensions
 
 from app.api import manga_router, sources_router, proxy_router, reader_router, categories_router, history_router
 
-# Configure logging to file
-LOG_FILE = "./data/backend.log"
-
-def setup_logging():
+def setup_logging(data_dir: str = "./data"):
     """Setup file logging for the backend."""
     # Create data directory if it doesn't exist
-    os.makedirs("./data", exist_ok=True)
+    os.makedirs(data_dir, exist_ok=True)
+    
+    log_file = os.path.join(data_dir, "backend.log")
     
     # Create logger
     logger = logging.getLogger("backend")
     logger.setLevel(logging.INFO)
     
     # File handler
-    file_handler = logging.FileHandler(LOG_FILE, encoding='utf-8')
+    file_handler = logging.FileHandler(log_file, encoding='utf-8')
     file_handler.setLevel(logging.INFO)
     
     # Console handler (to also show in terminal)
@@ -35,18 +35,28 @@ def setup_logging():
     file_handler.setFormatter(formatter)
     console_handler.setFormatter(formatter)
     
-    # Add handlers
-    logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
+    # Add handlers (avoid duplicates)
+    if not logger.handlers:
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
     
     # Log startup message
     logger.info(f"{'='*50}")
     logger.info(f"Backend started")
+    logger.info(f"Data directory: {data_dir}")
+    logger.info(f"Log file: {log_file}")
     logger.info(f"{'='*50}")
     
     return logger
 
-logger = setup_logging()
+# Parse command line arguments
+parser = argparse.ArgumentParser()
+parser.add_argument("--port", type=int, default=8000)
+parser.add_argument("--data-dir", type=str, default="./data")
+args = parser.parse_args()
+
+# Setup logging with data directory
+logger = setup_logging(args.data_dir)
 
 app = FastAPI()
 
