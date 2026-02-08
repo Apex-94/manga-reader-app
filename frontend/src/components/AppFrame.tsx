@@ -24,7 +24,6 @@ import {
   Download,
   RefreshCw,
 } from 'lucide-react';
-import { useColorMode } from '../theme/ColorModeContext';
 import { Link, useLocation } from 'react-router-dom';
 
 const drawerWidth = 240;
