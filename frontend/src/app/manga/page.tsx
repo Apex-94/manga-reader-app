@@ -5,6 +5,18 @@ import { api, getProxyUrl } from "../../lib/api";
 import { summarizeManga } from "../../services/geminiService";
 import { Sparkles, BookOpen, Clock, PenTool, User } from "lucide-react";
 import { Manga } from "../../types";
+import {
+  Box,
+  Typography,
+  Paper,
+  Chip,
+  Grid,
+  Stack,
+  Button,
+  CircularProgress,
+  Container,
+  Divider,
+} from "@mui/material";
 
 interface MangaDetails {
     id: string;
@@ -69,141 +81,349 @@ export default function MangaPage() {
         setGeneratingSummary(false);
     }
 
-    if (!url) return <div className="p-6">No manga URL provided.</div>;
-    if (loadingDetails) return <div className="p-6 flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>;
-    if (!details) return <div className="p-6">Failed to load details.</div>;
+    if (!url) return <Box sx={{ p: 3 }}>No manga URL provided.</Box>;
+    if (loadingDetails) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress color="primary" /></Box>;
+    if (!details) return <Box sx={{ p: 3 }}>Failed to load details.</Box>;
 
     return (
-        <div className="relative animate-in fade-in duration-500">
+        <Container maxWidth="xl" sx={{ py: 4 }}>
             {/* Backdrop */}
             {!backdropError && (
-                <div className="absolute top-0 left-0 w-full h-[400px] overflow-hidden -z-10 opacity-30 mask-image-gradient">
+                <Box sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    height: 400,
+                    overflow: 'hidden',
+                    zIndex: -1,
+                    opacity: 0.3,
+                }}>
                     <img
                         src={details.thumbnail_url ? getProxyUrl(details.thumbnail_url, source || '') : ''}
                         alt=""
                         onError={() => setBackdropError(true)}
-                        className="w-full h-full object-cover blur-3xl scale-125"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(8px)', transform: 'scale(1.25)' }}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-white dark:from-black/10 dark:to-gray-900" />
-                </div>
+                    <Box sx={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: 'linear-gradient(to bottom, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 1) 100%)',
+                        '&.dark': {
+                            background: 'linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 0%, rgba(17, 24, 39, 1) 100%)',
+                        }
+                    }} />
+                </Box>
             )}
 
-            <div className="pt-10 pb-8">
-                <div className="flex flex-col md:flex-row gap-10 mb-12">
-                    <div className="w-full md:w-72 flex-shrink-0 flex flex-col items-center md:items-start">
-                        <div className="aspect-[2/3] w-48 md:w-full bg-gray-200 dark:bg-gray-700 rounded-xl overflow-hidden shadow-2xl ring-1 ring-black/10 dark:ring-white/10 mb-6">
+            <Box sx={{ pt: 8, pb: 6 }}>
+                <Grid container spacing={6} mb={6}>
+                    <Grid size={{ xs: 12, md: 4 }} sx={{ display: 'flex', flexDirection: 'column', alignItems: { xs: 'center', md: 'flex-start' } }}>
+                        <Box sx={{
+                            aspectRatio: '2/3',
+                            width: { xs: 192, md: '100%' },
+                            bgcolor: { light: '#f3f4f6', dark: '#374151' },
+                            borderRadius: 2,
+                            overflow: 'hidden',
+                            boxShadow: 8,
+                            border: 1,
+                            borderColor: { light: 'rgba(0, 0, 0, 0.1)', dark: 'rgba(255, 255, 255, 0.1)' },
+                            mb: 3,
+                        }}>
                             {details.thumbnail_url && !imageError ? (
                                 <img
                                     src={getProxyUrl(details.thumbnail_url, source || '')}
                                     alt={details.title}
                                     onError={() => setImageError(true)}
-                                    className="w-full h-full object-cover"
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                 />
                             ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700">
-                                    <div className="text-center">
-                                        <div className="text-4xl mb-2">📚</div>
-                                        <div className="text-sm text-gray-600 dark:text-gray-300">No image</div>
-                                    </div>
-                                </div>
+                                <Box sx={{
+                                    width: '100%',
+                                    height: '100%',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: 'linear-gradient(to bottom right, #d1d5db, #9ca3af)',
+                                }}>
+                                    <Box sx={{ textAlign: 'center' }}>
+                                        <Typography variant="h1" sx={{ mb: 1 }}>📚</Typography>
+                                        <Typography variant="body2" sx={{ color: { light: '#6b7280', dark: '#d1d5db' } }}>No image</Typography>
+                                    </Box>
+                                </Box>
                             )}
-                        </div>
-                    </div>
+                        </Box>
+                    </Grid>
 
-                    <div className="flex-1">
-                        <h1 className="text-4xl md:text-5xl font-black mb-4 tracking-tight leading-tight">{details.title}</h1>
+                    <Grid size={{ xs: 12, md: 8 }}>
+                        <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 2, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
+                            {details.title}
+                        </Typography>
 
-                        <div className="flex flex-wrap gap-2 mb-6">
+                        <Stack direction="row" spacing={1} flexWrap="wrap" mb={3}>
                             {details.genres.map((g) => (
-                                <span key={g} className="px-3 py-1 bg-white/50 dark:bg-gray-800/50 backdrop-blur rounded-full text-sm font-medium border border-gray-200 dark:border-gray-700 text-indigo-600 dark:text-indigo-400">
-                                    {g}
-                                </span>
+                                <Chip
+                                    key={g}
+                                    label={g}
+                                    sx={{
+                                        bgcolor: { light: 'rgba(255, 255, 255, 0.5)', dark: 'rgba(31, 41, 55, 0.5)' },
+                                        backdropFilter: 'blur(8px)',
+                                        borderRadius: '999px',
+                                        border: 1,
+                                        borderColor: { light: '#e5e7eb', dark: '#374151' },
+                                        color: '#4f46e5',
+                                        fontSize: '0.875rem',
+                                        fontWeight: 'bold',
+                                    }}
+                                />
                             ))}
-                        </div>
+                        </Stack>
 
-                        <div className="flex flex-col gap-2 mb-8 text-sm text-gray-600 dark:text-gray-400">
-                            <div className="flex items-center gap-2">
-                                <User className="w-4 h-4" />
-                                <span className="font-semibold text-gray-900 dark:text-gray-200">Author:</span> {details.author || "Unknown"}
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <PenTool className="w-4 h-4" />
-                                <span className="font-semibold text-gray-900 dark:text-gray-200">Artist:</span> {details.artist || "Unknown"}
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <Clock className="w-4 h-4" />
-                                <span className="font-semibold text-gray-900 dark:text-gray-200">Status:</span>
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wider ${details.status === 'Ongoing' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                                    }`}>
-                                    {details.status}
-                                </span>
-                            </div>
-                        </div>
+                        <Stack direction="column" spacing={1} mb={4}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Box sx={{ color: { light: '#6b7280', dark: '#9ca3af' } }}>
+                                    <User size={16} />
+                                </Box>
+                                <Typography variant="body2" sx={{ fontWeight: 'bold', color: { light: '#111827', dark: '#f3f4f6' } }}>
+                                    Author:
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: { light: '#6b7280', dark: '#d1d5db' } }}>
+                                    {details.author || "Unknown"}
+                                </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Box sx={{ color: { light: '#6b7280', dark: '#9ca3af' } }}>
+                                    <PenTool size={16} />
+                                </Box>
+                                <Typography variant="body2" sx={{ fontWeight: 'bold', color: { light: '#111827', dark: '#f3f4f6' } }}>
+                                    Artist:
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: { light: '#6b7280', dark: '#d1d5db' } }}>
+                                    {details.artist || "Unknown"}
+                                </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Box sx={{ color: { light: '#6b7280', dark: '#9ca3af' } }}>
+                                    <Clock size={16} />
+                                </Box>
+                                <Typography variant="body2" sx={{ fontWeight: 'bold', color: { light: '#111827', dark: '#f3f4f6' } }}>
+                                    Status:
+                                </Typography>
+                                <Chip
+                                    label={details.status}
+                                    size="small"
+                                    sx={{
+                                        bgcolor: details.status === 'Ongoing'
+                                            ? { light: '#d1fae5', dark: 'rgba(34, 197, 94, 0.2)' }
+                                            : { light: '#dbeafe', dark: 'rgba(59, 130, 246, 0.2)' },
+                                        color: details.status === 'Ongoing'
+                                            ? { light: '#065f46', dark: '#34d399' }
+                                            : { light: '#1e40af', dark: '#60a5fa' },
+                                        fontWeight: 'bold',
+                                        fontSize: '0.75rem',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em',
+                                    }}
+                                />
+                            </Box>
+                        </Stack>
 
-                        <div className="bg-white/60 dark:bg-gray-800/40 backdrop-blur-md rounded-2xl p-6 border border-gray-200 dark:border-gray-700/50 shadow-sm relative overflow-hidden group">
-                            <div className="flex justify-between items-center mb-3">
-                                <h3 className="text-lg font-bold flex items-center gap-2">
+                        <Paper sx={{
+                            bgcolor: { light: 'rgba(255, 255, 255, 0.6)', dark: 'rgba(31, 41, 55, 0.4)' },
+                            backdropFilter: 'blur(8px)',
+                            borderRadius: 2,
+                            border: 1,
+                            borderColor: { light: 'rgba(229, 231, 235, 0.5)', dark: 'rgba(55, 65, 81, 0.5)' },
+                            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                            overflow: 'hidden',
+                            position: 'relative',
+                        }}>
+                            <Box sx={{
+                                p: 3,
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                mb: 1,
+                            }}>
+                                <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
                                     Synopsis
-                                </h3>
-                                <button
+                                </Typography>
+                                <Button
                                     onClick={handleGenerateSummary}
                                     disabled={generatingSummary}
-                                    className="text-xs flex items-center gap-1 text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 px-2 py-1 rounded-lg hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors disabled:opacity-50"
+                                    size="small"
+                                    sx={{
+                                        color: '#4f46e5',
+                                        bgcolor: { light: 'rgba(79, 70, 229, 0.1)', dark: 'rgba(79, 70, 229, 0.2)' },
+                                        borderRadius: '10px',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 'bold',
+                                        textTransform: 'none',
+                                        minWidth: 'auto',
+                                        padding: '4px 8px',
+                                        '&:hover': {
+                                            bgcolor: { light: 'rgba(79, 70, 229, 0.2)', dark: 'rgba(79, 70, 229, 0.3)' },
+                                        },
+                                        '&:disabled': {
+                                            opacity: 0.5,
+                                        },
+                                    }}
                                 >
-                                    <Sparkles className="w-3 h-3" />
+                                    <Sparkles size={14} style={{ marginRight: 4 }} />
                                     {generatingSummary ? 'Thinking...' : 'AI Summarize'}
-                                </button>
-                            </div>
+                                </Button>
+                            </Box>
 
                             {aiSummary ? (
-                                <div className="animate-in fade-in duration-700 bg-indigo-50/50 dark:bg-indigo-900/10 p-4 rounded-xl border border-indigo-100 dark:border-indigo-900/30 mb-3">
-                                    <p className="text-indigo-900 dark:text-indigo-200 italic text-sm leading-relaxed">
-                                        <Sparkles className="w-3 h-3 inline mr-1 text-indigo-500" />
-                                        "{aiSummary}"
-                                    </p>
-                                </div>
+                                <Box sx={{
+                                    animation: 'fadeIn 0.7s ease',
+                                    bgcolor: { light: 'rgba(238, 242, 255, 0.5)', dark: 'rgba(79, 70, 229, 0.1)' },
+                                    p: 2,
+                                    borderRadius: 2,
+                                    border: 1,
+                                    borderColor: { light: 'rgba(224, 231, 255, 0.3)', dark: 'rgba(79, 70, 229, 0.3)' },
+                                    mb: 2,
+                                    ml: 3,
+                                    mr: 3,
+                                }}>
+                                    <Typography variant="body2" sx={{
+                                        color: { light: '#312e81', dark: '#c7d2fe' },
+                                        fontStyle: 'italic',
+                                        lineHeight: 1.6,
+                                        '&:before': {
+                                            content: '"',
+                                            fontSize: '1.5rem',
+                                            color: '#6366f1',
+                                            marginRight: '4px',
+                                        },
+                                        '&:after': {
+                                            content: '"',
+                                            fontSize: '1.5rem',
+                                            color: '#6366f1',
+                                            marginLeft: '4px',
+                                        },
+                                    }}>
+                                        {aiSummary}
+                                    </Typography>
+                                </Box>
                             ) : null}
 
-                            <p className="text-gray-700 dark:text-gray-300 leading-relaxed text-sm md:text-base">
+                            <Typography variant="body1" sx={{
+                                color: { light: '#374151', dark: '#d1d5db' },
+                                lineHeight: 1.8,
+                                px: 3,
+                                pb: 3,
+                                fontSize: { xs: '0.875rem', md: '1rem' },
+                            }}>
                                 {details.description}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                            </Typography>
+                        </Paper>
+                    </Grid>
+                </Grid>
 
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-8">
-                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
-                        <BookOpen className="w-6 h-6 text-indigo-600" />
-                        Chapters
-                    </h2>
+                <Divider sx={{ my: 3 }} />
+
+                <Box sx={{ pt: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 4 }}>
+                        <Box sx={{ color: '#4f46e5' }}>
+                            <BookOpen size={24} />
+                        </Box>
+                        <Typography variant="h4" sx={{ fontWeight: 'bold' }}>
+                            Chapters
+                        </Typography>
+                    </Box>
+
                     {loadingChapters ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                            {[1, 2, 3].map(i => <div key={i} className="animate-pulse h-16 w-full bg-gray-200 dark:bg-gray-800 rounded-lg"></div>)}
-                        </div>
+                        <Grid container spacing={2}>
+                            {[1, 2, 3].map(i => (
+                                <Grid key={i} size={{ xs: 12, sm: 6, md: 4 }}>
+                                    <Box sx={{
+                                        height: 64,
+                                        bgcolor: { light: '#f3f4f6', dark: '#374151' },
+                                        borderRadius: 2,
+                                        animation: 'pulse 1.5s ease-in-out infinite',
+                                    }} />
+                                </Grid>
+                            ))}
+                        </Grid>
                     ) : (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                        <Grid container spacing={2}>
                             {chapters && chapters.length > 0 ? (
                                 chapters.slice().reverse().map((ch) => (
-                                    <Link
-                                        key={ch.url}
-                                        to={`/reader?chapter_url=${encodeURIComponent(ch.url)}&source=${encodeURIComponent(source || '')}`}
-                                        className="flex items-center p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-indigo-50 dark:hover:bg-gray-700 transition-all hover:border-indigo-500/50 hover:shadow-md group"
-                                    >
-                                        <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mr-3 text-xs font-bold text-gray-500 group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-                                            {ch.chapter_number || '-'}
-                                        </div>
-                                        <div className="font-medium truncate group-hover:text-indigo-600 transition-colors text-sm" title={ch.title}>
-                                            {ch.title}
-                                        </div>
-                                    </Link>
+                                    <Grid key={ch.url} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                                        <Link
+                                            to={`/reader?chapter_url=${encodeURIComponent(ch.url)}&source=${encodeURIComponent(source || '')}`}
+                                            style={{ textDecoration: 'none', color: 'inherit' }}
+                                        >
+                                            <Paper sx={{
+                                                p: 2,
+                                                bgcolor: { light: 'white', dark: '#1f2937' },
+                                                border: 1,
+                                                borderColor: { light: '#e5e7eb', dark: '#374151' },
+                                                borderRadius: 2,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                transition: 'all 0.2s ease',
+                                                '&:hover': {
+                                                    bgcolor: { light: 'rgba(79, 70, 229, 0.05)', dark: 'rgba(31, 41, 55, 0.8)' },
+                                                    borderColor: 'rgba(79, 70, 229, 0.3)',
+                                                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
+                                                }
+                                            }}>
+                                                <Box sx={{
+                                                    width: 32,
+                                                    height: 32,
+                                                    bgcolor: { light: '#f3f4f6', dark: '#374151' },
+                                                    borderRadius: '50%',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    mr: 2,
+                                                    transition: 'all 0.2s ease',
+                                                    '&:hover': {
+                                                        bgcolor: { light: 'rgba(79, 70, 229, 0.1)', dark: 'rgba(79, 70, 229, 0.2)' },
+                                                        color: '#4f46e5',
+                                                    }
+                                                }}>
+                                                    <Typography variant="caption" sx={{
+                                                        fontWeight: 'bold',
+                                                        color: { light: '#6b7280', dark: '#9ca3af' },
+                                                    }}>
+                                                        {ch.chapter_number || '-'}
+                                                    </Typography>
+                                                </Box>
+                                                <Typography variant="body2" sx={{
+                                                    fontWeight: 'medium',
+                                                    color: { light: '#111827', dark: '#f3f4f6' },
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                    whiteSpace: 'nowrap',
+                                                    flexGrow: 1,
+                                                    '&:hover': {
+                                                        color: '#4f46e5',
+                                                    }
+                                                }}>
+                                                    {ch.title}
+                                                </Typography>
+                                            </Paper>
+                                        </Link>
+                                    </Grid>
                                 ))
                             ) : (
-                                <p className="text-gray-500 col-span-full py-8 text-center">No chapters available.</p>
+                                <Grid size={{ xs: 12 }}>
+                                    <Typography variant="body2" sx={{
+                                        color: { light: '#6b7280', dark: '#9ca3af' },
+                                        textAlign: 'center',
+                                        py: 6,
+                                    }}>
+                                        No chapters available.
+                                    </Typography>
+                                </Grid>
                             )}
-                        </div>
+                        </Grid>
                     )}
-                </div>
-            </div>
-        </div>
+                </Box>
+            </Box>
+        </Container>
     );
 }
