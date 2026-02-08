@@ -1,68 +1,61 @@
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     use std::fs::{File, OpenOptions};
-    use std::io::{Write, BufWriter};
+    use std::io::Write;
     use std::process::{Command, Child, Stdio};
     use std::sync::Mutex;
     use tauri::State;
+    use tauri::api::path::BaseDirectory;
 
-    struct BackendState(Mutex<Option<Child>>, Mutex<Option<u16>>);
+    struct BackendState(Mutex<Option<Child>>, Mutex<Option<u16>>, Mutex<String>);
 
-    // Log file path
-    const LOG_FILE: &str = "./data/backend.log";
-
-    // Helper function to log messages
-    fn log_message(msg: &str) {
-        let timestamp = chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-        let log_line = format!("[{}] {}\n", timestamp, msg);
-        
-        // Print to console
-        println!("{}", log_line);
-        
-        // Write to log file
-        if let Ok(mut file) = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(LOG_FILE) 
-        {
-            let _ = file.write_all(log_line.as_bytes());
+    // Get data directory using Tauri API
+    fn get_data_dir() -> String {
+        let ctx = tauri::generate_context!();
+        let path_resolver = ctx.path_resolver();
+        if let Ok(data_dir) = path_resolver.resolve_string(BaseDirectory::Data) {
+            data_dir
+        } else {
+            // Fallback to ./data
+            String::from("./data")
         }
     }
 
     #[tauri::command]
     async fn start_backend(state: State<'_, BackendState>) -> Result<String, String> {
-        log_message("Starting backend...");
+        let data_dir = get_data_dir();
+        
+        // Store data directory
+        *state.2.lock().unwrap() = data_dir.clone();
         
         // Create data directory if it doesn't exist
-        let _ = std::fs::create_dir_all("./data");
+        let _ = std::fs::create_dir_all(&data_dir);
         
-        // Find free port
-        let port = find_free_port().await;
-        log_message(&format!("Found free port: {}", port));
-
-        // Prepare log file for backend output
-        let log_file = match File::create(LOG_FILE) {
+        let log_file_path = format!("{}/backend.log", data_dir);
+        
+        // Create log file
+        let log_file = match File::create(&log_file_path) {
             Ok(f) => f,
             Err(e) => {
                 let error_msg = format!("Failed to create log file: {}", e);
-                log_message(&format!("ERROR: {}", error_msg));
                 return Err(error_msg);
             }
         };
 
+        // Find free port
+        let port = find_free_port().await;
+
         // Spawn backend with stdout/stderr redirected to log file
         let child = match Command::new("./resources/pyyomi-backend")
-            .args(["--port", &port.to_string(), "--data-dir", "./data"])
+            .args(["--port", &port.to_string(), "--data-dir", &data_dir])
             .stdout(Stdio::from(log_file.try_clone().unwrap()))
             .stderr(Stdio::from(log_file))
             .spawn() {
             Ok(child) => {
-                log_message(&format!("Backend process spawned with PID: {:?}", child.id()));
                 child
             }
             Err(e) => {
                 let error_msg = format!("Failed to spawn backend: {}", e);
-                log_message(&format!("ERROR: {}", error_msg));
                 return Err(error_msg);
             }
         };
@@ -71,15 +64,11 @@ pub fn run() {
         *state.0.lock().unwrap() = Some(child);
         *state.1.lock().unwrap() = Some(port);
 
-        // Poll health endpoint with better logging
-        log_message("Waiting for backend to be ready...");
+        // Poll health endpoint
         match wait_for_ready(port).await {
-            Ok(_) => {
-                log_message(&format!("Backend is ready at http://127.0.0.1:{}", port));
-            }
+            Ok(_) => {}
             Err(e) => {
                 let error_msg = format!("Backend health check failed: {}", e);
-                log_message(&format!("ERROR: {}", error_msg));
                 return Err(error_msg);
             }
         }
@@ -98,13 +87,21 @@ pub fn run() {
     }
 
     #[tauri::command]
+    async fn get_backend_logs(state: State<'_, BackendState>) -> Result<String, String> {
+        // Get log file path from stored data directory
+        let data_dir = state.2.lock().unwrap().clone();
+        let log_file_path = format!("{}/backend.log", data_dir);
+        
+        match std::fs::read_to_string(&log_file_path) {
+            Ok(content) => Ok(content),
+            Err(_) => Ok(String::from("No logs available")),
+        }
+    }
+
+    #[tauri::command]
     async fn stop_backend(state: State<'_, BackendState>) -> Result<(), String> {
         if let Some(mut child) = state.0.lock().unwrap().take() {
-            log_message("Stopping backend...");
-            match child.kill() {
-                Ok(_) => log_message("Backend stopped"),
-                Err(e) => log_message(&format!("Failed to stop backend: {}", e)),
-            }
+            let _ = child.kill();
         }
         Ok(())
     }
@@ -117,42 +114,32 @@ pub fn run() {
     async fn wait_for_ready(port: u16) -> Result<(), String> {
         use reqwest::Client;
         let client = Client::new();
-        log_message(&format!("Checking backend health at http://127.0.0.1:{}/health", port));
         
-        for attempt in 0..60 {  // Increased to 60 attempts (30 seconds)
+        for attempt in 0..60 {
             match client.get(&format!("http://127.0.0.1:{}/health", port)).send().await {
                 Ok(response) if response.status().is_success() => {
-                    log_message(&format!("Health check successful (attempt {}/60)", attempt + 1));
                     return Ok(());
                 }
-                Ok(response) => {
-                    log_message(&format!("Health check returned status: {} (attempt {}/60)", response.status(), attempt + 1));
-                }
-                Err(e) => {
-                    log_message(&format!("Health check failed (attempt {}/60): {}", attempt + 1, e));
-                }
+                _ => {}
             }
             tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
         }
         
-        let error_msg = format!("Backend failed to start after 60 attempts (30 seconds)");
-        log_message(&format!("ERROR: {}", error_msg));
-        Err(error_msg)
+        Err("Backend failed to start after 60 attempts".to_string())
     }
 
     tauri::Builder::default()
-        .manage(BackendState(Mutex::new(None), Mutex::new(None)))
+        .manage(BackendState(Mutex::new(None), Mutex::new(None), Mutex::new(String::from("./data"))))
         .invoke_handler(tauri::generate_handler![
             start_backend,
             backend_url,
+            get_backend_logs,
             stop_backend
         ])
         .setup(|app| {
             // Create data directory
-            let _ = std::fs::create_dir_all("./data");
-            
-            // Clear old log file on startup
-            let _ = std::fs::remove_file(LOG_FILE);
+            let data_dir = get_data_dir();
+            let _ = std::fs::create_dir_all(&data_dir);
             
             if cfg!(debug_assertions) {
                 app.handle().plugin(
