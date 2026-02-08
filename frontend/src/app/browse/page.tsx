@@ -162,13 +162,20 @@ function MangaCardComponent({ item, onAdd }: { key?: any, item: MangaCard, onAdd
   
   return (
     <MangaCard
-      title={item.title}
-      url={item.url}
-      thumbnail_url={item.thumbnail_url}
-      source={item.source}
-      genres={item.genres}
-      onAction={handleAdd}
-      actionIcon="add"
+      manga={{
+        id: item.url,
+        title: item.title,
+        altTitle: '',
+        author: null,
+        status: 'Ongoing',
+        genres: item.genres || [],
+        description: '',
+        coverUrl: item.thumbnail_url || '',
+        rating: 0,
+        chapters: []
+      }}
+      isFavorite={false}
+      toggleFavorite={undefined}
     />
   );
 }
