@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, getProxyUrl } from "../../lib/api";
 import { Sparkles, BookOpen, Filter, X, SlidersHorizontal, ChevronDown, ChevronUp } from "lucide-react";
+import { useColorMode } from "../../theme/ColorModeContext";
 
 interface MangaCard {
   title: string;
@@ -13,7 +14,7 @@ interface MangaCard {
   genres?: string[];
 }
 
-function HeroSection({ item }: { item: MangaCard }) {
+function HeroSection({ item, isDark }: { item: MangaCard; isDark: boolean }) {
   if (!item) return null;
   return (
     <div className="relative w-full h-[300px] md:h-[400px] rounded-2xl overflow-hidden mb-10 group shadow-2xl">
@@ -109,6 +110,8 @@ export default function BrowsePage() {
   const [q, setQ] = useState("");
   const [activeFilters, setActiveFilters] = useState<any[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const { mode } = useColorMode();
+  const isDark = mode === 'dark';
 
   // Fetch sources to find active one
   const { data: sourcesData } = useQuery({
@@ -198,7 +201,7 @@ export default function BrowsePage() {
   return (
     <div className="py-8 animate-in fade-in duration-500">
 
-      {!q && !isLoading && featuredManga && <HeroSection item={featuredManga} />}
+      {!q && !isLoading && featuredManga && <HeroSection item={featuredManga} isDark={isDark} />}
 
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 sticky top-[64px] z-20 bg-white/95 dark:bg-gray-800/95 backdrop-blur py-4 px-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <h1 className="text-3xl font-bold flex items-center gap-3">
