@@ -1,5 +1,13 @@
 import axios from 'axios';
-import { ReaderSettings, Category, MangaCategory, ReadingProgress, HistoryEntry } from '../types';
+import {
+    ReaderSettings,
+    Category,
+    MangaCategory,
+    ReadingProgress,
+    HistoryEntry,
+    DownloadItem,
+    UpdateItem,
+} from '../types';
 
 export const api = axios.create();
 
@@ -149,4 +157,56 @@ export const updateReadingProgress = async (mangaId: number, chapterNumber: numb
         params: { manga_id: mangaId, chapter_number: chapterNumber, page_number: pageNumber }
     });
     return response.data.progress;
+};
+
+export const queueDownload = async (payload: {
+    manga_title: string;
+    manga_url: string;
+    source: string;
+    chapter_number: number;
+    chapter_url: string;
+    chapter_title?: string;
+}) => {
+    const response = await api.post('/downloads/queue', payload);
+    return response.data;
+};
+
+export const getDownloads = async (): Promise<DownloadItem[]> => {
+    const response = await api.get('/downloads');
+    return response.data.downloads;
+};
+
+export const pauseDownload = async (downloadId: number) => {
+    await api.post(`/downloads/${downloadId}/pause`);
+};
+
+export const resumeDownload = async (downloadId: number) => {
+    await api.post(`/downloads/${downloadId}/resume`);
+};
+
+export const cancelDownload = async (downloadId: number) => {
+    await api.post(`/downloads/${downloadId}/cancel`);
+};
+
+export const checkUpdates = async () => {
+    const response = await api.post('/updates/check');
+    return response.data;
+};
+
+export const getUpdates = async (): Promise<UpdateItem[]> => {
+    const response = await api.get('/updates');
+    return response.data.updates;
+};
+
+export const markUpdateRead = async (chapterId: number) => {
+    await api.post(`/updates/mark-read/${chapterId}`);
+};
+
+export const getAppSettings = async (): Promise<Record<string, unknown>> => {
+    const response = await api.get('/settings');
+    return response.data.settings;
+};
+
+export const updateAppSetting = async (key: string, value: unknown) => {
+    await api.put('/settings', { key, value });
 };

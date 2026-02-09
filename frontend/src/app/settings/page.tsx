@@ -1,28 +1,88 @@
-import React from 'react';
-import { Box, Typography, Paper, List, ListItem, ListItemText, Chip } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
+import { getAppSettings, updateAppSetting } from '../../lib/api';
 
 export default function SettingsPage() {
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ['app-settings'],
+    queryFn: getAppSettings,
+  });
+
+  const [downloadConcurrency, setDownloadConcurrency] = useState('2');
+  const [updateInterval, setUpdateInterval] = useState('60');
+  const [readerMode, setReaderMode] = useState('single');
+  const [readerDirection, setReaderDirection] = useState('ltr');
+
+  useEffect(() => {
+    if (!data) return;
+    setDownloadConcurrency(String(data['downloads.max_concurrent'] ?? 2));
+    setUpdateInterval(String(data['updates.interval_minutes'] ?? 60));
+    setReaderMode(String(data['reader.default_mode'] ?? 'single'));
+    setReaderDirection(String(data['reader.reading_direction'] ?? 'ltr'));
+  }, [data]);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      await Promise.all([
+        updateAppSetting('downloads.max_concurrent', Number(downloadConcurrency)),
+        updateAppSetting('updates.interval_minutes', Number(updateInterval)),
+        updateAppSetting('reader.default_mode', readerMode),
+        updateAppSetting('reader.reading_direction', readerDirection),
+      ]);
+    },
+    onSuccess: async () => {
+      await refetch();
+    },
+  });
+
   return (
     <Box sx={{ py: 1 }}>
       <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold' }}>
         Settings
       </Typography>
-      <Paper sx={{ p: 3, borderRadius: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <Chip label="Placeholder" size="small" color="warning" />
-          <Typography variant="body2" color="text.secondary">
-            Reader/app settings persistence improvements are deferred in this milestone.
-          </Typography>
-        </Box>
-        <Typography variant="h6" sx={{ mb: 1 }}>
-          Planned Next
-        </Typography>
-        <List dense>
-          <ListItem><ListItemText primary="Reader mode defaults and shortcuts customization" /></ListItem>
-          <ListItem><ListItemText primary="Download behavior and storage location preferences" /></ListItem>
-          <ListItem><ListItemText primary="Backup/restore for library metadata and progress" /></ListItem>
-        </List>
-      </Paper>
+
+      {isLoading ? (
+        <Typography color="text.secondary">Loading settings...</Typography>
+      ) : (
+        <Paper sx={{ p: 3, borderRadius: 2 }}>
+          <Stack spacing={2}>
+            {saveMutation.isSuccess && <Alert severity="success">Settings saved.</Alert>}
+            {saveMutation.isError && <Alert severity="error">Failed to save settings.</Alert>}
+
+            <TextField
+              label="Max Concurrent Downloads"
+              type="number"
+              value={downloadConcurrency}
+              onChange={(e) => setDownloadConcurrency(e.target.value)}
+              inputProps={{ min: 1, max: 10 }}
+            />
+            <TextField
+              label="Update Check Interval (minutes)"
+              type="number"
+              value={updateInterval}
+              onChange={(e) => setUpdateInterval(e.target.value)}
+              inputProps={{ min: 5, max: 1440 }}
+            />
+            <TextField
+              label="Default Reader Mode"
+              value={readerMode}
+              onChange={(e) => setReaderMode(e.target.value)}
+              helperText="single or scroll"
+            />
+            <TextField
+              label="Default Reading Direction"
+              value={readerDirection}
+              onChange={(e) => setReaderDirection(e.target.value)}
+              helperText="ltr or rtl"
+            />
+
+            <Button variant="contained" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? 'Saving...' : 'Save Settings'}
+            </Button>
+          </Stack>
+        </Paper>
+      )}
     </Box>
   );
 }

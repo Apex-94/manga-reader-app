@@ -76,9 +76,15 @@ class Download(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     manga_id: int = Field(foreign_key="manga.id")
     chapter_number: int
+    chapter_url: Optional[str] = None
+    chapter_title: Optional[str] = None
+    source: Optional[str] = None
     status: str = "pending"
     progress: float = 0.0
     file_path: Optional[str] = None
+    error: Optional[str] = None
+    total_pages: int = 0
+    downloaded_pages: int = 0
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

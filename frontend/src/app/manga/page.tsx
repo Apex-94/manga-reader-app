@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useSearchParams, Link } from "react-router-dom";
-import { api, getProxyUrl } from "../../lib/api";
+import { api, getProxyUrl, queueDownload } from "../../lib/api";
 import { summarizeManga } from "../../services/geminiService";
 import { Sparkles, BookOpen, Clock, PenTool, User } from "lucide-react";
 import { Manga } from "../../types";
@@ -44,6 +44,9 @@ export default function MangaPage() {
     const [generatingSummary, setGeneratingSummary] = useState(false);
     const [imageError, setImageError] = useState(false);
     const [backdropError, setBackdropError] = useState(false);
+    const queueMutation = useMutation({
+        mutationFn: queueDownload,
+    });
 
     const { data: details, isLoading: loadingDetails } = useQuery({
         queryKey: ["manga", url, source],
@@ -351,62 +354,71 @@ export default function MangaPage() {
                             {chapters && chapters.length > 0 ? (
                                 chapters.slice().reverse().map((ch) => (
                                     <Grid key={ch.url} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
-                                        <Link
-                                            to={`/reader?chapter_url=${encodeURIComponent(ch.url)}&source=${encodeURIComponent(source || '')}`}
-                                            style={{ textDecoration: 'none', color: 'inherit' }}
-                                        >
-                                            <Paper sx={{
-                                                p: 2,
-                                                bgcolor: { light: 'white', dark: '#1f2937' },
-                                                border: 1,
-                                                borderColor: { light: '#e5e7eb', dark: '#374151' },
-                                                borderRadius: 2,
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                transition: 'all 0.2s ease',
-                                                '&:hover': {
-                                                    bgcolor: { light: 'rgba(79, 70, 229, 0.05)', dark: 'rgba(31, 41, 55, 0.8)' },
-                                                    borderColor: 'rgba(79, 70, 229, 0.3)',
-                                                    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
-                                                }
-                                            }}>
-                                                <Box sx={{
-                                                    width: 32,
-                                                    height: 32,
-                                                    bgcolor: { light: '#f3f4f6', dark: '#374151' },
-                                                    borderRadius: '50%',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    mr: 2,
-                                                    transition: 'all 0.2s ease',
-                                                    '&:hover': {
-                                                        bgcolor: { light: 'rgba(79, 70, 229, 0.1)', dark: 'rgba(79, 70, 229, 0.2)' },
-                                                        color: '#4f46e5',
-                                                    }
-                                                }}>
-                                                    <Typography variant="caption" sx={{
-                                                        fontWeight: 'bold',
-                                                        color: { light: '#6b7280', dark: '#9ca3af' },
+                                        <Paper sx={{
+                                            p: 2,
+                                            bgcolor: { light: 'white', dark: '#1f2937' },
+                                            border: 1,
+                                            borderColor: { light: '#e5e7eb', dark: '#374151' },
+                                            borderRadius: 2,
+                                            transition: 'all 0.2s ease',
+                                            '&:hover': {
+                                                bgcolor: { light: 'rgba(79, 70, 229, 0.05)', dark: 'rgba(31, 41, 55, 0.8)' },
+                                                borderColor: 'rgba(79, 70, 229, 0.3)',
+                                                boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
+                                            }
+                                        }}>
+                                            <Link
+                                                to={`/reader?chapter_url=${encodeURIComponent(ch.url)}&source=${encodeURIComponent(source || '')}`}
+                                                style={{ textDecoration: 'none', color: 'inherit' }}
+                                            >
+                                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                                                    <Box sx={{
+                                                        width: 32,
+                                                        height: 32,
+                                                        bgcolor: { light: '#f3f4f6', dark: '#374151' },
+                                                        borderRadius: '50%',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        mr: 2,
                                                     }}>
-                                                        {ch.chapter_number || '-'}
+                                                        <Typography variant="caption" sx={{
+                                                            fontWeight: 'bold',
+                                                            color: { light: '#6b7280', dark: '#9ca3af' },
+                                                        }}>
+                                                            {ch.chapter_number || '-'}
+                                                        </Typography>
+                                                    </Box>
+                                                    <Typography variant="body2" sx={{
+                                                        fontWeight: 'medium',
+                                                        color: { light: '#111827', dark: '#f3f4f6' },
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        whiteSpace: 'nowrap',
+                                                        flexGrow: 1,
+                                                    }}>
+                                                        {ch.title}
                                                     </Typography>
                                                 </Box>
-                                                <Typography variant="body2" sx={{
-                                                    fontWeight: 'medium',
-                                                    color: { light: '#111827', dark: '#f3f4f6' },
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                    whiteSpace: 'nowrap',
-                                                    flexGrow: 1,
-                                                    '&:hover': {
-                                                        color: '#4f46e5',
-                                                    }
-                                                }}>
-                                                    {ch.title}
-                                                </Typography>
-                                            </Paper>
-                                        </Link>
+                                            </Link>
+                                            <Button
+                                                size="small"
+                                                variant="outlined"
+                                                fullWidth
+                                                onClick={() =>
+                                                    queueMutation.mutate({
+                                                        manga_title: details.title,
+                                                        manga_url: url!,
+                                                        source: source || 'mangakatana:en',
+                                                        chapter_number: ch.chapter_number || 0,
+                                                        chapter_url: ch.url,
+                                                        chapter_title: ch.title,
+                                                    })
+                                                }
+                                            >
+                                                Download Chapter
+                                            </Button>
+                                        </Paper>
                                     </Grid>
                                 ))
                             ) : (

@@ -9,7 +9,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.extensions.loader import initialize_extensions
 # from app.scheduler import scheduler_service
 
-from app.api import manga_router, sources_router, proxy_router, reader_router, categories_router, history_router
+from app.api import (
+    manga_router,
+    sources_router,
+    proxy_router,
+    reader_router,
+    categories_router,
+    history_router,
+    downloads_router,
+    updates_router,
+    settings_router,
+)
+from app.services.download_manager import download_manager
 
 # Global data directory that can be set via command line or environment
 DATA_DIR = os.environ.get("PYYOMI_DATA_DIR", "./data")
@@ -65,6 +76,7 @@ else:
 
 # Setup logging with data directory
 logger = setup_logging(args.data_dir)
+os.environ["DATA_DIR"] = args.data_dir
 
 app = FastAPI()
 
@@ -110,6 +122,9 @@ def create_app() -> FastAPI:
     app.include_router(proxy_router, prefix="/api/v1", tags=["proxy"])
     app.include_router(categories_router, prefix="/api/v1/categories", tags=["categories"])
     app.include_router(history_router, prefix="/api/v1/history", tags=["history"])
+    app.include_router(downloads_router, prefix="/api/v1/downloads", tags=["downloads"])
+    app.include_router(updates_router, prefix="/api/v1/updates", tags=["updates"])
+    app.include_router(settings_router, prefix="/api/v1/settings", tags=["settings"])
     
     from app.api import library_router
     from app.api.scheduler import router as scheduler_router
@@ -117,16 +132,15 @@ def create_app() -> FastAPI:
     app.include_router(reader_router, prefix="/api/v1/reader", tags=["reader"])
     app.include_router(scheduler_router, prefix="/api/v1/scheduler", tags=["scheduler"])
 
-    # # Scheduler startup and shutdown events
-    # @app.on_event("startup")
-    # async def startup_event():
-    #     scheduler_service.start()
-    #     logger.info("Scheduler service started")
-    
-    # @app.on_event("shutdown")
-    # async def shutdown_event():
-    #     scheduler_service.shutdown()
-    #     logger.info("Scheduler service stopped")
+    @app.on_event("startup")
+    async def startup_event():
+        await download_manager.start()
+        logger.info("Download manager started")
+
+    @app.on_event("shutdown")
+    async def shutdown_event():
+        await download_manager.stop()
+        logger.info("Download manager stopped")
     
     @app.get("/")
     async def root():
