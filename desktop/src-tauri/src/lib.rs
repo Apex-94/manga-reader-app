@@ -146,6 +146,12 @@ pub fn run() {
             let data_dir = get_data_dir(&app_handle);
             let _ = std::fs::create_dir_all(&data_dir);
             
+            // Initialize devtools plugin
+            #[cfg(debug_assertions)]
+            {
+                app.handle().plugin(tauri_plugin_devtools::init())?;
+            }
+            
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
