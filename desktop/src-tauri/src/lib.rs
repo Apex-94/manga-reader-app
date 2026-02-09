@@ -53,15 +53,30 @@ pub fn run() {
         let resource_dir = app_handle.path().resource_dir()
             .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default());
         
-        // Path to backend executable
-        let backend_path = resource_dir.join("pyyomi-backend.exe");
+        // Path to backend executable - it's in resources/ subdirectory when bundled
+        let backend_path = resource_dir.join("resources").join("pyyomi-backend.exe");
+        
+        // Also try direct path as fallback
+        let backend_path_alt = resource_dir.join("pyyomi-backend.exe");
         
         println!("[Backend] Starting backend from: {:?}", backend_path);
+        println!("[Backend] Alternative path: {:?}", backend_path_alt);
         println!("[Backend] Data directory: {:?}", data_dir);
         println!("[Backend] Port: {}", port);
 
+        // Try primary path first, then fallback
+        let backend_executable = if backend_path.exists() {
+            &backend_path
+        } else if backend_path_alt.exists() {
+            &backend_path_alt
+        } else {
+            &backend_path
+        };
+        
+        println!("[Backend] Using executable at: {:?}", backend_executable);
+
         // Spawn backend with stdout/stderr redirected to log file
-        let child = match Command::new(&backend_path)
+        let child = match Command::new(backend_executable)
             .args(["--port", &port.to_string(), "--data-dir", &data_dir.to_string_lossy()])
             .stdout(Stdio::from(log_file.try_clone().unwrap()))
             .stderr(Stdio::from(log_file))
@@ -71,7 +86,7 @@ pub fn run() {
                 child
             }
             Err(e) => {
-                let error_msg = format!("Failed to spawn backend from {:?}: {}", backend_path, e);
+                let error_msg = format!("Failed to spawn backend from {:?}: {}", backend_executable, e);
                 println!("[Backend] {}", error_msg);
                 return Err(error_msg);
             }
