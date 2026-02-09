@@ -4,7 +4,7 @@
 // Declare Tauri types for TypeScript
 declare global {
   interface Window {
-    __TAURI__: {
+    __TAURI__?: {
       core: {
         invoke: (command: string, args?: Record<string, unknown>) => Promise<unknown>;
       };
@@ -14,15 +14,25 @@ declare global {
         };
       };
     };
-    __BACKEND_URL__: string;
+    __BACKEND_URL__?: string;
   }
 }
 
 export async function startBackend(): Promise<string> {
-  if (window.__TAURI__) {
+  // Wait for Tauri to be ready
+  let tauri = window.__TAURI__;
+  let retries = 0;
+  
+  while (!tauri && retries < 50) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    tauri = window.__TAURI__;
+    retries++;
+  }
+  
+  if (tauri) {
     try {
       console.log('[Desktop] Starting backend...');
-      const url = await window.__TAURI__.core.invoke('start_backend') as string;
+      const url = await tauri.core.invoke('start_backend') as string;
       console.log('[Desktop] Backend started at:', url);
       window.__BACKEND_URL__ = url;
       return url;
@@ -39,9 +49,10 @@ export async function startBackend(): Promise<string> {
 }
 
 export async function getBackendUrl(): Promise<string> {
-  if (window.__TAURI__) {
+  const tauri = window.__TAURI__;
+  if (tauri) {
     try {
-      const url = await window.__TAURI__.core.invoke('backend_url') as string;
+      const url = await tauri.core.invoke('backend_url') as string;
       console.log('[Desktop] Backend URL:', url);
       window.__BACKEND_URL__ = url;
       return url;
@@ -58,9 +69,10 @@ export async function getBackendUrl(): Promise<string> {
 }
 
 export async function getBackendLogs(): Promise<string> {
-  if (window.__TAURI__) {
+  const tauri = window.__TAURI__;
+  if (tauri) {
     try {
-      const logs = await window.__TAURI__.core.invoke('get_backend_logs') as string;
+      const logs = await tauri.core.invoke('get_backend_logs') as string;
       return logs;
     } catch (error) {
       console.error('[Desktop] Failed to get backend logs:', error);
@@ -71,9 +83,10 @@ export async function getBackendLogs(): Promise<string> {
 }
 
 export function toggleDevTools(): void {
-  if (window.__TAURI__) {
+  const tauri = window.__TAURI__;
+  if (tauri) {
     try {
-      const win = window.__TAURI__.window.getCurrentWindow();
+      const win = tauri.window.getCurrentWindow();
       win.toggleDevTools();
     } catch (error) {
       console.error('[Desktop] Failed to toggle devtools:', error);
