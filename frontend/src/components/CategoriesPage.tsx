@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Card,
-  CardContent,
   Typography,
   TextField,
   Button,
   List,
   ListItem,
+  ListItemButton,
   ListItemText,
   ListItemSecondaryAction,
   IconButton,
@@ -26,7 +25,6 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Remove as RemoveIcon,
   LibraryBooks as LibraryBooksIcon
 } from '@mui/icons-material';
 import { getCategories, createCategory, updateCategory, deleteCategory, getCategoryManga, removeMangaFromCategory } from '../lib/api';
@@ -34,6 +32,7 @@ import { Category } from '../types';
 import { MangaCard } from './MangaCard';
 
 const CategoriesPage: React.FC = () => {
+  type SnackbarSeverity = 'success' | 'error';
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [categoryManga, setCategoryManga] = useState<any[]>([]);
@@ -41,7 +40,11 @@ const CategoriesPage: React.FC = () => {
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
   const [categoryName, setCategoryName] = useState('');
   const [loading, setLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as const });
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: SnackbarSeverity }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
 
   useEffect(() => {
     loadCategories();
@@ -208,7 +211,7 @@ const CategoriesPage: React.FC = () => {
 
       <Grid container spacing={3}>
         {/* Categories List */}
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Paper sx={{ p: 2, height: '100%' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6">Categories</Typography>
@@ -228,14 +231,15 @@ const CategoriesPage: React.FC = () => {
                 Loading categories...
               </Typography>
             ) : categories.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ italic: true }}>
+              <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                 No categories created yet. Create your first category to organize your manga library.
               </Typography>
             ) : (
               <List sx={{ maxHeight: 600, overflow: 'auto' }}>
                 {categories.map((category) => (
                   <React.Fragment key={category.id}>
-                    <ListItem
+                    <ListItem disablePadding>
+                      <ListItemButton
                       selected={selectedCategory?.id === category.id}
                       onClick={() => {
                         setSelectedCategory(category);
@@ -255,7 +259,8 @@ const CategoriesPage: React.FC = () => {
                         }
                       }}
                     >
-                      <ListItemText primary={category.name} />
+                        <ListItemText primary={category.name} />
+                      </ListItemButton>
                       <ListItemSecondaryAction>
                         <IconButton
                           edge="end"
@@ -288,7 +293,7 @@ const CategoriesPage: React.FC = () => {
         </Grid>
 
         {/* Category Manga */}
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Paper sx={{ p: 2, height: '100%' }}>
             {selectedCategory ? (
               <>
@@ -307,13 +312,13 @@ const CategoriesPage: React.FC = () => {
                     Loading manga...
                   </Typography>
                 ) : categoryManga.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary" sx={{ italic: true }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
                     This category is empty. Add manga to organize your library.
                   </Typography>
                 ) : (
                   <Grid container spacing={2}>
                     {categoryManga.map((manga) => (
-                      <Grid item xs={6} sm={4} md={3} key={manga.id}>
+                      <Grid size={{ xs: 6, sm: 4, md: 3 }} key={manga.id}>
                         <MangaCard
                           manga={manga}
                           onRemove={() => handleRemoveMangaFromCategory(manga.id)}

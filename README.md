@@ -38,7 +38,7 @@
 - 📱 **Responsive Design** - Works seamlessly on desktop and mobile devices
 
 ### Desktop Features
-- 🖥️ **Native Desktop App** - Built with Tauri for Windows, macOS, and Linux
+- 🖥️ **Native Desktop App** - Built with Electron for Windows, macOS, and Linux
 - ⚡ **Self-Contained** - Bundled backend with automatic process management
 - 🔔 **Notifications** - Get notified when new chapters are available
 - 📦 **Offline Reading** - Download chapters for offline access (coming soon)
@@ -83,9 +83,9 @@
 
 | Component | Technology | Version |
 |-----------|------------|---------|
-| Framework | Tauri | 2.x |
-| Language | Rust | 1.70+ |
-| Build Tool | Cargo | - |
+| Framework | Electron | 28.x |
+| Runtime | Chromium + Node.js | bundled |
+| Packager | electron-builder | 24.x |
 
 ---
 
@@ -115,7 +115,7 @@ pyyomi/
 │   │   │   ├── theme.ts      # Theme definition
 │   │   │   └── ColorModeContext.tsx # Dark/light mode
 │   │   ├── lib/             # Utilities
-│   │   │   └── api.ts        # API client with Tauri support
+│   │   │   └── api.ts        # API client with desktop runtime support
 │   │   └── services/         # Business logic
 │   │       └── geminiService.ts # AI integration
 │   ├── package.json
@@ -143,12 +143,12 @@ pyyomi/
 │   ├── requirements.txt
 │   └── pyinstaller.spec
 │
-├── desktop/                   # Tauri desktop wrapper
-│   ├── src/                  # Tauri source
+├── desktop/                   # Tauri wrapper (experimental/deferred)
+│   ├── src/                  # Tauri source (deferred)
 │   │   ├── main.tsx         # App entry
 │   │   └── App.tsx          # Root component
 │   ├── src-tauri/           # Rust backend
-│   │   ├── src/             # Tauri commands
+│   │   ├── src/             # Tauri commands (deferred)
 │   │   ├── Cargo.toml
 │   │   ├── tauri.conf.json
 │   │   └── resources/       # Bundled resources
@@ -224,7 +224,7 @@ npm run dev
 - **Node.js** 18 or higher
 - **Python** 3.10 or higher
 - **Git**
-- **Rust** (required for Tauri desktop development)
+- **Rust** (only required for deferred Tauri development)
 
 ### Environment Variables
 
@@ -260,31 +260,30 @@ npm test
 
 ```bash
 # Install dependencies
-cd desktop
+cd electron
 npm install
 
 # Run desktop app
-npm run tauri dev
+npm start
 ```
 
 ### Building
 
 ```bash
 # Build for all platforms
-cd desktop
-npm run tauri build
-
-# Build for specific platform
-npm run tauri build -- --platform windows   # Windows
-npm run tauri build -- --platform macos    # macOS
-npm run tauri build -- --platform linux    # Linux
+cd electron
+npm run build:all
 ```
 
-### Desktop Architecture
+### Desktop Runtime Policy
+
+- Active desktop runtime: `electron/`
+- Deferred runtime (experimental): `desktop/` (Tauri)
+- This milestone validates Electron only for acceptance criteria
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Tauri Desktop Shell                       │
+│                   Electron Desktop Shell                     │
 ├─────────────────────────────────────────────────────────────┤
 │  ┌─────────────────────────────────────────────────────┐     │
 │  │              Frontend (WebView)                    │     │
@@ -511,12 +510,12 @@ PORT=8000
 
 ```env
 VITE_API_URL=http://localhost:8000/api/v1
-VITE_TAURI_API_URL=/api/v1
 ```
 
-### Tauri Configuration
+### Desktop URL Contract
 
-See [`desktop/src-tauri/tauri.conf.json`](desktop/src-tauri/tauri.conf.json) for desktop-specific configuration.
+Desktop runtimes may inject `window.__BACKEND_URL__` in the renderer.
+If not injected, frontend falls back to `http://localhost:8000`.
 
 ---
 
@@ -536,13 +535,13 @@ docker compose -f docker-compose.yml up -d
 
 ```bash
 # Install dependencies
-cd desktop
+cd electron
 npm install
 
 # Build for current platform
-npm run tauri build
+npm run build:win
 
-# Output in desktop/src-tauri/target/release/bundle/
+# Output in electron/release-electron/
 ```
 
 ### Backend Binary (PyInstaller)
@@ -600,11 +599,10 @@ curl http://localhost:8000/
 
 #### Desktop app won't build
 ```bash
-# Verify Rust is installed
-rustc --version
-
-# Update Tauri CLI
-npm update @tauri-apps/cli
+# Reinstall Electron dependencies
+cd electron
+npm install
+npm run build:win
 ```
 
 ### Getting Help
@@ -625,7 +623,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 
 - [MUI](https://mui.com/) for the beautiful component library
 - [FastAPI](https://fastapi.tiangolo.com/) for the excellent API framework
-- [Tauri](https://tauri.app/) for enabling desktop deployment
+- [Electron](https://www.electronjs.org/) for desktop deployment
 - [SQLModel](https://sqlmodel.tiangolo.com/) for the elegant ORM
 - All the manga sources that make this application possible
 

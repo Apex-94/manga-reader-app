@@ -11,6 +11,9 @@ from app.extensions.loader import initialize_extensions
 
 from app.api import manga_router, sources_router, proxy_router, reader_router, categories_router, history_router
 
+# Global data directory that can be set via command line or environment
+DATA_DIR = os.environ.get("PYYOMI_DATA_DIR", "./data")
+
 def setup_logging(data_dir: str = "./data"):
     """Setup file logging for the backend."""
     # Create data directory if it doesn't exist
@@ -49,11 +52,16 @@ def setup_logging(data_dir: str = "./data"):
     
     return logger
 
-# Parse command line arguments
-parser = argparse.ArgumentParser()
-parser.add_argument("--port", type=int, default=8000)
-parser.add_argument("--data-dir", type=str, default="./data")
-args = parser.parse_args()
+# Only parse arguments when running directly (not when imported by uvicorn)
+if __name__ != "__main__":
+    # When imported by uvicorn, use environment variable or default
+    args = type('Args', (), {'data_dir': DATA_DIR, 'port': 8000})()
+else:
+    # Parse command line arguments when running directly
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--data-dir", type=str, default="./data")
+    args = parser.parse_args()
 
 # Setup logging with data directory
 logger = setup_logging(args.data_dir)
@@ -79,7 +87,7 @@ def create_app() -> FastAPI:
     )
 
     # Configure CORS
-    allowed = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175").split(",")
+    allowed = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://tauri.localhost,https://tauri.localhost").split(",")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[o.strip() for o in allowed if o.strip()],

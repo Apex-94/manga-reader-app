@@ -1,0 +1,123 @@
+{
+  "name": "pyyomi-electron",
+  "version": "1.0.0",
+  "description": "Manga Reader Desktop App - Electron Edition",
+  "main": "main.js",
+  "scripts": {
+    "start": "NODE_ENV=development electron .",
+    "build": "electron-builder",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "build:all": "electron-builder -wml"
+  },
+  "keywords": ["manga", "reader", "electron", "desktop"],
+  "author": "Pyyomi",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.pyyomi.app",
+    "productName": "Pyyomi Manga Reader",
+    "directories": {
+      "output": "release-electron"
+    },
+    "files": [
+      "**/*",
+      "!node_modules/*",
+      "!frontend/node_modules/*",
+      "!backend/.pytest_cache/*",
+      "!backend/.venv/*",
+      "!backend/venv/*",
+      "!backend/__pycache__/*",
+      "!backend/app/__pycache__/*",
+      "!backend/app/db/__pycache__/*",
+      "!backend/app/api/__pycache__/*",
+      "!desktop/src-tauri/*",
+      "!screenshots/*",
+      "!.git/*",
+      "!.github/*",
+      "!.vscode/*",
+      "!release-electron/*",
+      "!dist-electron/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend/",
+        "to": "backend/",
+        "filter": [
+          "!**/*",
+          "app/**/*",
+          "!app/__pycache__/*",
+          "!app/api/__pycache__/*",
+          "!app/db/__pycache__/*",
+          "!app/extensions/*",
+          "library.db",
+          "library.json.bak"
+        ]
+      },
+      {
+        "from": "../frontend/dist/",
+        "to": "frontend/dist/",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "../frontend/package.json",
+        "to": "frontend/package.json"
+      },
+      {
+        "from": "../frontend/node_modules/",
+        "to": "frontend/node_modules/",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "../desktop/src-tauri/icons/icon.ico",
+      "artifactName": "Pyyomi-${version}-Electron-${os}.${ext}"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "../desktop/src-tauri/icons/icon.icns",
+      "artifactName": "Pyyomi-${version}-Electron-${os}.${ext}"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "../desktop/src-tauri/icons/",
+      "artifactName": "Pyyomi-${version}-Electron-${os}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Pyyomi Manga Reader"
+    },
+    "dmg": {
+      "title": "Pyyomi Manga Reader",
+      "contents": [
+        {
+          "x": 410,
+          "y": 234,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 130,
+          "y": 234,
+          "type": "file"
+        }
+      ]
+    },
+    "compression": "maximum"
+  },
+  "dependencies": {
+    "electron-is-dev": "^1.1.0"
+  }
+}

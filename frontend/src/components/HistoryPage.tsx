@@ -37,9 +37,14 @@ import { getReadingHistory, deleteHistoryEntry, deleteMangaHistory, clearHistory
 import { HistoryEntry } from '../types';
 
 const HistoryPage: React.FC = () => {
+  type SnackbarSeverity = 'success' | 'error';
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as const });
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: SnackbarSeverity }>({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
   const [confirmDialog, setConfirmDialog] = useState({
     open: false,
     title: '',

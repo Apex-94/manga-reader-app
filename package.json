@@ -4,6 +4,16 @@
     "scripts": {
         "build": "npm run build --prefix frontend",
         "dev": "npm run dev --prefix frontend",
-        "install": "npm install --prefix frontend"
-    }
+        "install": "npm install --prefix frontend",
+        "electron:install": "cd electron && npm install",
+        "electron:dev": "cd electron && npm start",
+        "electron:build": "cd electron && npm run build",
+        "electron:build:win": "cd electron && npm run build:win",
+        "desktop:tauri": "cd desktop && npm run tauri build",
+        "desktop:electron": "cd electron && npm run build"
+    },
+    "keywords": ["manga", "reader", "desktop", "pyyomi"],
+    "author": "Pyyomi",
+    "license": "MIT",
+    "description": "Manga Reader Desktop App - Multiple packaging options"
 }

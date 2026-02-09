@@ -82,7 +82,7 @@ pub fn run() {
             .stderr(Stdio::from(log_file))
             .spawn() {
             Ok(child) => {
-                println!("[Backend] Backend started successfully");
+                println!("[Backend] Backend started successfully (PID: {})", child.id());
                 child
             }
             Err(e) => {
@@ -147,17 +147,26 @@ pub fn run() {
         use reqwest::Client;
         let client = Client::new();
         
-        for _ in 0..60 {
-            match client.get(&format!("http://127.0.0.1:{}/health", port)).send().await {
+        let health_url = format!("http://127.0.0.1:{}/health", port);
+        println!("[Backend] Waiting for backend at {}...", health_url);
+        
+        for attempt in 0..120 {
+            match client.get(&health_url).send().await {
                 Ok(response) if response.status().is_success() => {
+                    println!("[Backend] Backend is ready after {} attempts", attempt);
                     return Ok(());
                 }
-                _ => {}
+                Ok(response) => {
+                    println!("[Backend] Attempt {}: got status {}", attempt, response.status());
+                }
+                Err(e) => {
+                    println!("[Backend] Attempt {}: {}", attempt, e);
+                }
             }
             tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
         }
         
-        Err("Backend failed to start after 60 attempts".to_string())
+        Err(format!("Backend failed to start after 120 attempts at {}", health_url))
     }
 
     tauri::Builder::default()

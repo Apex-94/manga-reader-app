@@ -1,37 +1,45 @@
 import axios from 'axios';
 import { ReaderSettings, Category, MangaCategory, ReadingProgress, HistoryEntry } from '../types';
 
-// Create axios instance without baseURL initially
 export const api = axios.create();
 
-// Function to set base URL dynamically
 export const setApiBaseUrl = (baseUrl: string) => {
     api.defaults.baseURL = `${baseUrl}/api/v1`;
+    console.log('[API] Base URL set to:', api.defaults.baseURL);
 };
 
-// Initialize API base URL from window object (set by desktop-init.ts)
-if (typeof window !== 'undefined' && (window as any).__BACKEND_URL__) {
-    setApiBaseUrl((window as any).__BACKEND_URL__);
-    console.log('[API] Using backend URL:', (window as any).__BACKEND_URL__);
-} else {
-    // Default fallback
-    setApiBaseUrl('http://localhost:8000');
-    console.log('[API] Using default backend URL: http://localhost:8000');
-}
+const getDefaultBaseUrl = (): string => {
+    if (typeof window === 'undefined') {
+        return 'http://localhost:8000';
+    }
+    if (window.__BACKEND_URL__) {
+        return window.__BACKEND_URL__;
+    }
+    return (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000';
+};
 
-// Listen for backend-ready event (for desktop app)
+const normalizeBaseUrl = (url: string): string => {
+    return url.replace(/\/api\/v1\/?$/, '').replace(/\/$/, '');
+};
+
 if (typeof window !== 'undefined') {
-    window.addEventListener('backend-ready', ((event: CustomEvent) => {
-        const url = event.detail.url;
-        setApiBaseUrl(url);
-        console.log('[API] Backend ready, using URL:', url);
+    const initialBaseUrl = normalizeBaseUrl(getDefaultBaseUrl());
+    setApiBaseUrl(initialBaseUrl);
+
+    window.addEventListener('backend-ready', ((event: CustomEvent<{ url?: string }>) => {
+        if (!event.detail?.url) {
+            return;
+        }
+        setApiBaseUrl(normalizeBaseUrl(event.detail.url));
     }) as EventListener);
 }
 
-// Helper function to get proxy URL for images
+export async function waitForBackend(): Promise<void> {
+    return Promise.resolve();
+}
+
 export const getProxyUrl = (imageUrl: string, source?: string): string => {
     if (!api.defaults.baseURL) {
-        console.warn('API base URL not set');
         return imageUrl;
     }
     const params = new URLSearchParams({ url: imageUrl });
@@ -41,7 +49,6 @@ export const getProxyUrl = (imageUrl: string, source?: string): string => {
     return `${api.defaults.baseURL}/proxy?${params.toString()}`;
 };
 
-// Reader settings API endpoints
 export const getReaderSettings = async (userId: string): Promise<ReaderSettings> => {
     const response = await api.get(`/reader/settings/${userId}`);
     return response.data;
@@ -61,7 +68,6 @@ export const deleteReaderSettings = async (userId: string): Promise<void> => {
     await api.delete(`/reader/settings/${userId}`);
 };
 
-// Categories API
 export const getCategories = async (): Promise<Category[]> => {
     const response = await api.get('/categories');
     return response.data.categories;
@@ -99,7 +105,6 @@ export const removeMangaFromCategory = async (categoryId: number, mangaId: numbe
     await api.delete(`/categories/${categoryId}/manga/${mangaId}`);
 };
 
-// History API
 export const getReadingHistory = async (): Promise<HistoryEntry[]> => {
     const response = await api.get('/history');
     return response.data.history;
@@ -129,7 +134,6 @@ export const clearHistory = async (): Promise<void> => {
     await api.delete('/history');
 };
 
-// Reading Progress API
 export const getReadingProgress = async (mangaId: number): Promise<ReadingProgress[]> => {
     const response = await api.get(`/history/progress/manga/${mangaId}`);
     return response.data.progress;

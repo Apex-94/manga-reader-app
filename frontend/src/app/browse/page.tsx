@@ -242,7 +242,7 @@ export default function BrowsePage() {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["browse", tab, q, activeFilters, activeSource?.id],
     queryFn: async () => {
-      console.log("Fetching data for", tab, q, activeFilters);
+      console.log("[Browse] Fetching data for", tab);
       if (q.trim() || activeFilters.length > 0) {
         const params: any = { q: q.trim() || "" };
         if (activeFilters.length > 0) {
@@ -252,20 +252,18 @@ export default function BrowsePage() {
           params.source = activeSource.id;
         }
         const resp = await api.get(`/manga/search`, { params });
+        console.log("[Browse] Search results:", resp.data);
         return resp.data;
       }
-      if (tab === "latest") {
-        const resp = await api.get(`/manga/latest`);
-        return resp.data;
-      } else if (tab === "popular") {
-        const resp = await api.get(`/manga/popular`);
-        return resp.data;
-      } else if (tab === "random") {
-        const resp = await api.get(`/manga/random`);
-        return resp.data;
-      }
+      let endpoint = tab === "latest" ? "/manga/latest" : tab === "popular" ? "/manga/popular" : "/manga/random";
+      console.log("[Browse] Fetching from:", endpoint);
+      const resp = await api.get(endpoint);
+      console.log("[Browse] Response:", resp.data);
+      return resp.data;
     },
   });
+  
+  console.log("[Browse] Data state:", { data, isLoading, resultsCount: data?.results?.length });
 
   const queryClient = useQueryClient();
   const addMutation = useMutation({
