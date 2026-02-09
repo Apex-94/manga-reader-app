@@ -1,54 +1,58 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
-const { spawn, exec } = require('child_process');
+const { spawn } = require('child_process');
 const fs = require('fs');
-const os = require('os');
+const http = require('http');
 
 let mainWindow;
 let backendProcess;
 let frontendProcess;
-const isDev = process.env.NODE_ENV === 'development';
 
-// Find Python executable
-function getPythonPath() {
-  // Check common Python locations on Windows
-  const pythonPaths = [
-    'python',
-    'python3',
-    'py',
-    path.join(os.homedir(), 'AppData/Local/Programs/Python/python314/python.exe'),
-    path.join(os.homedir(), 'AppData/Local/Programs/Python/Python314/python.exe'),
-  ];
-  return pythonPaths[0]; // Return first available
+const isWindows = process.platform === 'win32';
+const npmCommand = isWindows ? 'npm.cmd' : 'npm';
+const BROKEN_PIPE_PATTERN = /(BrokenPipeError|broken pipe|EPIPE)/i;
+
+function isBrokenPipeError(value) {
+  return BROKEN_PIPE_PATTERN.test(String(value || ''));
 }
 
-// Find backend venv Python
-function getBackendPython() {
-  // Get base directory - could be unpacked or in asar
-  const baseDir = path.join(__dirname, '..', '..');
-  const venvPath = path.join(baseDir, 'backend', 'venv', 'Scripts', 'python.exe');
-  const altVenvPath = path.join(baseDir, 'backend', '.venv', 'Scripts', 'python.exe');
-  const devVenvPath = path.join(__dirname, '..', 'backend', 'venv', 'Scripts', 'python.exe');
-  
+function getBackendDir() {
+  const candidates = [
+    path.join(process.resourcesPath || '', 'backend'),
+    path.join(__dirname, '..', 'backend'),
+    path.join(__dirname, '..', '..', 'backend'),
+  ];
+  return candidates.find((p) => fs.existsSync(p)) || candidates[1];
+}
+
+function getBackendPython(backendDir) {
+  const venvPath = path.join(backendDir, 'venv', 'Scripts', 'python.exe');
+  const altVenvPath = path.join(backendDir, '.venv', 'Scripts', 'python.exe');
   if (fs.existsSync(venvPath)) return venvPath;
   if (fs.existsSync(altVenvPath)) return altVenvPath;
-  if (fs.existsSync(devVenvPath)) return devVenvPath;
   return 'python';
 }
 
 function startBackend() {
   return new Promise((resolve) => {
-    const baseDir = path.join(__dirname, '..', '..');
-    const backendDir = path.join(baseDir, 'backend');
-    const pythonPath = getBackendPython();
-    
+    const backendDir = getBackendDir();
+    const pythonPath = getBackendPython(backendDir);
+
     console.log('Starting backend with Python:', pythonPath);
-    
-    backendProcess = spawn(pythonPath, ['-m', 'uvicorn', 'app.main:app', '--host', '0.0.0.0', '--port', '8000'], {
-      cwd: backendDir,
-      stdio: 'pipe',
-      shell: true
-    });
+    backendProcess = spawn(
+      pythonPath,
+      ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8000'],
+      {
+        cwd: backendDir,
+        stdio: 'pipe',
+        shell: false,
+        windowsHide: true,
+        env: {
+          ...process.env,
+          PYYOMI_DISABLE_CONSOLE_LOG: '1',
+        },
+      }
+    );
 
     let started = false;
 
@@ -62,7 +66,12 @@ function startBackend() {
     });
 
     backendProcess.stderr.on('data', (data) => {
-      console.error('Backend Error:', data.toString());
+      const output = data.toString();
+      if (isBrokenPipeError(output)) {
+        console.warn('Backend stream warning ignored:', output.trim());
+        return;
+      }
+      console.error('Backend Error:', output);
     });
 
     backendProcess.on('error', (err) => {
@@ -70,7 +79,6 @@ function startBackend() {
       resolve(false);
     });
 
-    // Timeout after 15 seconds
     setTimeout(() => {
       if (!started) {
         console.log('Backend startup timeout, proceeding anyway...');
@@ -80,51 +88,76 @@ function startBackend() {
   });
 }
 
+function findBundledFrontendDist() {
+  const candidates = [
+    path.join(process.resourcesPath || '', 'frontend', 'dist'),
+    path.join(__dirname, 'frontend', 'dist'),
+    path.join(path.dirname(app.getAppPath()), 'frontend', 'dist'),
+  ];
+  return candidates.find((p) => fs.existsSync(p));
+}
+
+function getDevFrontendDir() {
+  const candidates = [
+    path.join(__dirname, '..', '..', 'frontend'),
+    path.join(__dirname, '..', 'frontend'),
+  ];
+  return candidates.find((p) => fs.existsSync(path.join(p, 'package.json')));
+}
+
 function startFrontend() {
   return new Promise((resolve) => {
-    const baseDir = path.join(__dirname, '..', '..');
-    const frontendDir = path.join(baseDir, 'frontend');
-    
     console.log('Starting frontend...');
-    
-    // Check if dist folder exists in bundled resources
-    const distPath = path.join(__dirname, 'frontend', 'dist');
-    if (fs.existsSync(distPath)) {
-      console.log('Using bundled frontend dist...');
-      // For bundled mode, serve the dist folder
-      startStaticServer(path.join(__dirname, 'frontend', 'dist'), 3000).then(resolve);
+
+    const distPath = findBundledFrontendDist();
+    if (distPath) {
+      console.log('Using bundled frontend dist:', distPath);
+      startStaticServer(distPath, 3000).then(resolve);
       return;
     }
+
+    const frontendDir = getDevFrontendDir();
+    if (!frontendDir) {
+      console.error('Frontend directory not found for development mode.');
+      resolve(false);
+      return;
+    }
+
     const nodeModulesPath = path.join(frontendDir, 'node_modules');
     if (!fs.existsSync(nodeModulesPath)) {
       console.log('Installing frontend dependencies...');
-      const installProcess = spawn('npm', ['install'], {
+      const installProcess = spawn(npmCommand, ['install'], {
         cwd: frontendDir,
         stdio: 'inherit',
-        shell: true
+        shell: false,
+        windowsHide: true,
       });
-      
+
       installProcess.on('close', (code) => {
         if (code === 0) {
-          startFrontendDev(resolve);
+          startFrontendDev(frontendDir, resolve);
         } else {
           resolve(false);
         }
       });
-    } else {
-      startFrontendDev(resolve);
+      installProcess.on('error', (err) => {
+        console.error('Failed to install frontend dependencies:', err);
+        resolve(false);
+      });
+      return;
     }
+
+    startFrontendDev(frontendDir, resolve);
   });
 }
 
-function startFrontendDev(resolve) {
-  const frontendDir = path.join(__dirname, '..', 'frontend');
-  
-  frontendProcess = spawn('npm', ['run', 'dev', '--', '--host', '0.0.0.0', '--port', '3000'], {
+function startFrontendDev(frontendDir, resolve) {
+  frontendProcess = spawn(npmCommand, ['run', 'dev', '--', '--host', '0.0.0.0', '--port', '3000'], {
     cwd: frontendDir,
     stdio: 'pipe',
-    shell: true,
-    env: { ...process.env, BROWSER: 'none' }
+    shell: false,
+    windowsHide: true,
+    env: { ...process.env, BROWSER: 'none' },
   });
 
   let started = false;
@@ -147,7 +180,6 @@ function startFrontendDev(resolve) {
     resolve(false);
   });
 
-  // Timeout after 30 seconds
   setTimeout(() => {
     if (!started) {
       console.log('Frontend startup timeout, proceeding anyway...');
@@ -156,15 +188,16 @@ function startFrontendDev(resolve) {
   }, 30000);
 }
 
-const http = require('http');
-const https = require('https');
-const { URL } = require('url');
-
-// Simple static file server
 function startStaticServer(dir, port) {
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
-      let filePath = path.join(dir, req.url === '/' ? 'index.html' : req.url);
+      let reqPath = req.url || '/';
+      if (reqPath === '/') reqPath = '/index.html';
+      let filePath = path.join(dir, reqPath);
+      if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+        filePath = path.join(dir, 'index.html');
+      }
+
       const ext = path.extname(filePath);
       const mimeTypes = {
         '.html': 'text/html',
@@ -178,43 +211,37 @@ function startStaticServer(dir, port) {
         '.ico': 'image/x-icon',
       };
       const contentType = mimeTypes[ext] || 'application/octet-stream';
-      
+
       fs.readFile(filePath, (err, content) => {
         if (err) {
-          if (err.code === 'ENOENT') {
-            res.writeHead(404);
-            res.end('Not Found');
-          } else {
-            res.writeHead(500);
-            res.end('Server Error');
-          }
+          res.writeHead(500);
+          res.end('Server Error');
         } else {
           res.writeHead(200, { 'Content-Type': contentType });
           res.end(content);
         }
       });
     });
-    
-    server.listen(port, '0.0.0.0', () => {
-      console.log(`Static server running at http://localhost:${port}`);
+
+    server.listen(port, '127.0.0.1', () => {
+      console.log(`Static server running at http://127.0.0.1:${port}`);
       resolve(true);
     });
-    
-    // Store server reference for cleanup
-    frontendProcess = { kill: () => server.close() };
+
+    frontendProcess = {
+      kill: () => server.close(),
+    };
   });
 }
 
 async function createWindow() {
-  // Wait for services to start
   console.log('Starting services...');
-  
-  await startBackend();
-  console.log('Backend started');
-  process.env.PYYOMI_BACKEND_URL = 'http://localhost:8000';
-  
-  await startFrontend();
-  console.log('Frontend started');
+  const backendOk = await startBackend();
+  console.log('Backend started:', backendOk);
+  process.env.PYYOMI_BACKEND_URL = 'http://127.0.0.1:8000';
+
+  const frontendOk = await startFrontend();
+  console.log('Frontend started:', frontendOk);
 
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -224,19 +251,17 @@ async function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
     },
     icon: path.join(__dirname, '..', 'desktop', 'src-tauri', 'icons', 'icon.ico'),
     show: false,
-    backgroundColor: '#1a1a2e'
+    backgroundColor: '#1a1a2e',
   });
 
   mainWindow.setMenuBarVisibility(false);
 
-  // Load the frontend
   const frontendUrl = 'http://localhost:3000';
   console.log('Loading:', frontendUrl);
-  
   mainWindow.loadURL(frontendUrl);
 
   mainWindow.once('ready-to-show', () => {
@@ -244,7 +269,6 @@ async function createWindow() {
     mainWindow.focus();
   });
 
-  // Open external links in browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
@@ -258,15 +282,13 @@ async function createWindow() {
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
-  // Kill backend process
-  if (backendProcess) {
-    backendProcess.kill('SIGTERM');
+  if (backendProcess && typeof backendProcess.kill === 'function') {
+    backendProcess.kill();
   }
-  // Kill frontend process
-  if (frontendProcess) {
-    frontendProcess.kill('SIGTERM');
+  if (frontendProcess && typeof frontendProcess.kill === 'function') {
+    frontendProcess.kill();
   }
-  
+
   if (process.platform !== 'darwin') {
     app.quit();
   }
@@ -278,7 +300,6 @@ app.on('activate', () => {
   }
 });
 
-// IPC handlers
 ipcMain.on('get-app-path', (event) => {
   event.reply('app-path', app.getAppPath());
 });
@@ -286,4 +307,20 @@ ipcMain.on('get-app-path', (event) => {
 ipcMain.on('restart-app', () => {
   app.relaunch();
   app.exit(0);
+});
+
+process.on('uncaughtException', (error) => {
+  if (isBrokenPipeError(error?.message)) {
+    console.warn('Suppressed uncaught broken-pipe exception:', error.message);
+    return;
+  }
+  console.error('Uncaught exception in Electron main process:', error);
+});
+
+process.on('unhandledRejection', (reason) => {
+  if (isBrokenPipeError(reason)) {
+    console.warn('Suppressed unhandled broken-pipe rejection:', String(reason));
+    return;
+  }
+  console.error('Unhandled rejection in Electron main process:', reason);
 });

@@ -4,7 +4,7 @@
   "description": "Manga Reader Desktop App - Electron Edition",
   "main": "main.js",
   "scripts": {
-    "start": "NODE_ENV=development electron .",
+    "start": "electron .",
     "build": "electron-builder",
     "build:win": "electron-builder --win",
     "build:mac": "electron-builder --mac",

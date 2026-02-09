@@ -213,14 +213,25 @@ const CategoriesPage: React.FC = () => {
         {/* Categories List */}
         <Grid size={{ xs: 12, md: 4 }}>
           <Paper sx={{ p: 2, height: '100%' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6">Categories</Typography>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                mb: 2,
+                flexWrap: 'wrap',
+              }}
+            >
+              <Typography variant="h6" sx={{ flexGrow: 1, minWidth: 0 }}>
+                Categories
+              </Typography>
               <Button
                 variant="contained"
                 size="small"
                 startIcon={<AddIcon />}
                 onClick={openCreateDialog}
                 disabled={loading}
+                sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
               >
                 Create Category
               </Button>

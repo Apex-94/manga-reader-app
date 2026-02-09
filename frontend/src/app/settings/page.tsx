@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Alert, Box, Button, Paper, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material';
 import { getAppSettings, updateAppSetting } from '../../lib/api';
 
 export default function SettingsPage() {
@@ -66,16 +66,24 @@ export default function SettingsPage() {
             />
             <TextField
               label="Default Reader Mode"
+              select
               value={readerMode}
               onChange={(e) => setReaderMode(e.target.value)}
-              helperText="single or scroll"
-            />
+              helperText="Choose how pages are displayed by default."
+            >
+              <MenuItem value="single">Single page</MenuItem>
+              <MenuItem value="scroll">Vertical scroll</MenuItem>
+            </TextField>
             <TextField
               label="Default Reading Direction"
+              select
               value={readerDirection}
               onChange={(e) => setReaderDirection(e.target.value)}
-              helperText="ltr or rtl"
-            />
+              helperText="Choose page progression direction."
+            >
+              <MenuItem value="ltr">Left to right (LTR)</MenuItem>
+              <MenuItem value="rtl">Right to left (RTL)</MenuItem>
+            </TextField>
 
             <Button variant="contained" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
               {saveMutation.isPending ? 'Saving...' : 'Save Settings'}

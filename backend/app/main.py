@@ -40,19 +40,21 @@ def setup_logging(data_dir: str = "./data"):
     file_handler = logging.FileHandler(log_file, encoding='utf-8')
     file_handler.setLevel(logging.INFO)
     
-    # Console handler (to also show in terminal)
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    
     # Formatter
     formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
     file_handler.setFormatter(formatter)
-    console_handler.setFormatter(formatter)
+    disable_console_log = os.environ.get("PYYOMI_DISABLE_CONSOLE_LOG", "0") == "1"
+    if not disable_console_log:
+        # Console handler for local terminal debugging
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_handler.setFormatter(formatter)
     
     # Add handlers (avoid duplicates)
     if not logger.handlers:
         logger.addHandler(file_handler)
-        logger.addHandler(console_handler)
+        if not disable_console_log:
+            logger.addHandler(console_handler)
     
     # Log startup message
     logger.info(f"{'='*50}")
@@ -99,7 +101,14 @@ def create_app() -> FastAPI:
     )
 
     # Configure CORS
-    allowed = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://tauri.localhost,https://tauri.localhost").split(",")
+    allowed = os.getenv(
+        "ALLOWED_ORIGINS",
+        "http://localhost:3000,http://127.0.0.1:3000,"
+        "http://localhost:5173,http://127.0.0.1:5173,"
+        "http://localhost:5174,http://127.0.0.1:5174,"
+        "http://localhost:5175,http://127.0.0.1:5175,"
+        "http://tauri.localhost,https://tauri.localhost"
+    ).split(",")
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[o.strip() for o in allowed if o.strip()],

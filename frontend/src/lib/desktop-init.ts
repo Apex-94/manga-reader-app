@@ -4,66 +4,79 @@
 declare global {
   interface Window {
     __BACKEND_URL__?: string;
-    __TAURI__?: any;
+    __TAURI__?: {
+      core?: {
+        invoke?: <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
+      };
+    };
   }
 }
 
 let backendStarted = false;
+const FALLBACK_BACKEND_URL = 'http://localhost:8000';
 
-// Check if running in Tauri by trying to use Tauri API
-async function checkIsTauri(): Promise<boolean> {
-  try {
-    // Try to import Tauri API - this will throw in non-Tauri environments
-    await import('@tauri-apps/api/core');
-    return true;
-  } catch (error) {
-    return false;
+function getInjectedBackendUrl(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
   }
+  const value = window.__BACKEND_URL__;
+  return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
-// Dynamically import Tauri API only when running in Tauri
-async function invokeTauri<T>(command: string): Promise<T> {
-  const { invoke } = await import('@tauri-apps/api/core');
-  return invoke<T>(command);
+function getTauriInvoke() {
+  return window.__TAURI__?.core?.invoke;
+}
+
+function isTauriRuntime(): boolean {
+  return typeof getTauriInvoke() === 'function';
 }
 
 export async function startBackend(): Promise<string> {
   if (backendStarted) {
-    return window.__BACKEND_URL__ || 'http://localhost:8000';
+    return getInjectedBackendUrl() || FALLBACK_BACKEND_URL;
   }
-  
-  const isTauriEnv = await checkIsTauri();
-  
-  if (!isTauriEnv) {
-    console.log('[Desktop] Not running in Tauri, using default URL');
-    window.__BACKEND_URL__ = 'http://localhost:8000';
+
+  const injectedUrl = getInjectedBackendUrl();
+  if (!isTauriRuntime()) {
+    const url = injectedUrl || FALLBACK_BACKEND_URL;
+    console.log('[Desktop] Non-Tauri runtime detected, using backend URL:', url);
+    window.__BACKEND_URL__ = url;
     backendStarted = true;
-    return 'http://localhost:8000';
+    return url;
   }
-  
+
+  const invoke = getTauriInvoke();
+  if (!invoke) {
+    window.__BACKEND_URL__ = injectedUrl || FALLBACK_BACKEND_URL;
+    return window.__BACKEND_URL__;
+  }
+
   try {
     console.log('[Desktop] Starting backend...');
-    const url = await invokeTauri<string>('start_backend');
+    const url = await invoke<string>('start_backend');
     console.log('[Desktop] Backend started at:', url);
     window.__BACKEND_URL__ = url;
     backendStarted = true;
     return url;
   } catch (error) {
     console.error('[Desktop] Failed to start backend:', error);
-    window.__BACKEND_URL__ = 'http://localhost:8000';
-    return 'http://localhost:8000';
+    window.__BACKEND_URL__ = injectedUrl || FALLBACK_BACKEND_URL;
+    return window.__BACKEND_URL__;
   }
 }
 
 export async function getBackendUrl(): Promise<string> {
-  const isTauriEnv = await checkIsTauri();
-  
-  if (!isTauriEnv) {
-    return window.__BACKEND_URL__ || 'http://localhost:8000';
+  if (!isTauriRuntime()) {
+    return getInjectedBackendUrl() || FALLBACK_BACKEND_URL;
   }
-  
+
+  const invoke = getTauriInvoke();
+  if (!invoke) {
+    return getInjectedBackendUrl() || FALLBACK_BACKEND_URL;
+  }
+
   try {
-    const url = await invokeTauri<string>('backend_url');
+    const url = await invoke<string>('backend_url');
     console.log('[Desktop] Backend URL:', url);
     window.__BACKEND_URL__ = url;
     return url;
@@ -75,14 +88,17 @@ export async function getBackendUrl(): Promise<string> {
 }
 
 export async function getBackendLogs(): Promise<string> {
-  const isTauriEnv = await checkIsTauri();
-  
-  if (!isTauriEnv) {
+  if (!isTauriRuntime()) {
     return 'Not running in Tauri';
   }
-  
+
+  const invoke = getTauriInvoke();
+  if (!invoke) {
+    return 'Not running in Tauri';
+  }
+
   try {
-    const logs = await invokeTauri<string>('get_backend_logs');
+    const logs = await invoke<string>('get_backend_logs');
     return logs;
   } catch (error) {
     console.error('[Desktop] Failed to get backend logs:', error);
@@ -101,16 +117,12 @@ export async function initializeBackend(): Promise<string> {
   
   initPromise = (async () => {
     try {
-      // Try to invoke a Tauri command to check if we're in Tauri
-      // If this throws, we're not in Tauri
-      console.log('[Desktop] Checking if running in Tauri...');
       const url = await startBackend();
       window.dispatchEvent(new CustomEvent('backend-ready', { detail: { url } }));
       return url;
     } catch (error) {
-      // Not in Tauri or failed to start
-      console.log('[Web] Not running in Tauri or failed to start, using default backend URL');
-      const url = 'http://localhost:8000';
+      console.log('[Desktop] Backend initialization fallback triggered');
+      const url = getInjectedBackendUrl() || FALLBACK_BACKEND_URL;
       window.__BACKEND_URL__ = url;
       window.dispatchEvent(new CustomEvent('backend-ready', { detail: { url } }));
       return url;
