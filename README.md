@@ -157,7 +157,7 @@ pyyomi/
 ├── docs/                      # Documentation
 │   └── ARCHITECTURE.md       # Architecture documentation
 │
-├── docker-compose.yml         # Docker configuration
+├── package.json              # Root scripts
 ├── package.json              # Root scripts
 └── README.md                 # This file
 ```
@@ -166,19 +166,19 @@ pyyomi/
 
 ## Quick Start
 
-### Option 1: Docker Compose (Recommended)
+### Quick Start (Electron)
 
 ```bash
-# Start all services
-docker compose up --build
+# Install dependencies
+npm run frontend:install
+npm run electron:install
 
-# Access the application
-# Frontend: http://localhost:5173
-# Backend API: http://localhost:8000/api/v1
-# API Docs: http://localhost:8000/docs
+# Build frontend and launch desktop app
+npm run frontend:build
+npm run electron:dev
 ```
 
-### Option 2: Local Development
+### Local Development
 
 #### Backend Setup
 
@@ -224,7 +224,6 @@ npm run dev
 - **Node.js** 18 or higher
 - **Python** 3.10 or higher
 - **Git**
-- **Rust** (only required for deferred Tauri development)
 
 ### Environment Variables
 
@@ -530,16 +529,6 @@ If not injected, frontend falls back to `http://localhost:8000`.
 
 ## Building for Production
 
-### Docker
-
-```bash
-# Build images
-docker compose build
-
-# Run production containers
-docker compose -f docker-compose.yml up -d
-```
-
 ### Desktop Application
 
 ```bash
@@ -639,4 +628,6 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 ---
 
 **Happy Reading! 📚🎉**
+
+
 

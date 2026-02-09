@@ -1,19 +1,23 @@
 {
-    "name": "pyyomi-root",
-    "private": true,
-    "scripts": {
-        "build": "npm run build --prefix frontend",
-        "dev": "npm run dev --prefix frontend",
-        "install": "npm install --prefix frontend",
-        "electron:install": "cd electron && npm install",
-        "electron:dev": "cd electron && npm start",
-        "electron:build": "cd electron && npm run build",
-        "electron:build:win": "cd electron && npm run build:win",
-        "desktop:tauri": "cd desktop && npm run tauri build",
-        "desktop:electron": "cd electron && npm run build"
-    },
-    "keywords": ["manga", "reader", "desktop", "pyyomi"],
-    "author": "Pyyomi",
-    "license": "MIT",
-    "description": "Manga Reader Desktop App - Multiple packaging options"
+    "name":  "pyyomi-root",
+    "private":  true,
+    "scripts":  {
+                    "frontend:install":  "npm install --prefix frontend",
+                    "frontend:build":  "npm run build --prefix frontend",
+                    "frontend:typecheck":  "cd frontend \u0026\u0026 npx tsc --noEmit",
+                    "electron:install":  "npm install --prefix electron",
+                    "electron:dev":  "npm run start --prefix electron",
+                    "electron:build":  "npm run build --prefix electron",
+                    "electron:build:win":  "npm run build:win --prefix electron"
+                },
+    "keywords":  [
+                     "manga",
+                     "reader",
+                     "desktop",
+                     "pyyomi",
+                     "electron"
+                 ],
+    "author":  "Pyyomi",
+    "license":  "MIT",
+    "description":  "Manga Reader Desktop App - Electron Runtime"
 }
