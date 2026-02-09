@@ -1,29 +1,33 @@
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    use std::fs::{File, OpenOptions};
-    use std::io::Write;
+    use std::fs::File;
+    use std::path::PathBuf;
     use std::process::{Command, Child, Stdio};
     use std::sync::Mutex;
+    use tauri::Manager;
     use tauri::State;
-    use tauri::api::path::BaseDirectory;
 
-    struct BackendState(Mutex<Option<Child>>, Mutex<Option<u16>>, Mutex<String>);
+    struct BackendState(Mutex<Option<Child>>, Mutex<Option<u16>>, Mutex<PathBuf>);
 
     // Get data directory using Tauri API
-    fn get_data_dir() -> String {
-        let ctx = tauri::generate_context!();
-        let path_resolver = ctx.path_resolver();
-        if let Ok(data_dir) = path_resolver.resolve_string(BaseDirectory::Data) {
+    fn get_data_dir(app: &tauri::AppHandle) -> PathBuf {
+        let path = app.path();
+        if let Ok(data_dir) = path.data_dir() {
             data_dir
         } else {
-            // Fallback to ./data
-            String::from("./data")
+            // Fallback to ./data relative to current exe location
+            if let Ok(exe_path) = app.path().resource_dir() {
+                exe_path.join("data")
+            } else {
+                PathBuf::from("./data")
+            }
         }
     }
 
     #[tauri::command]
-    async fn start_backend(state: State<'_, BackendState>) -> Result<String, String> {
-        let data_dir = get_data_dir();
+    async fn start_backend(app: tauri::Window<tauri::Wry>, state: State<'_, BackendState>) -> Result<String, String> {
+        let app_handle = app.app_handle();
+        let data_dir = get_data_dir(&app_handle);
         
         // Store data directory
         *state.2.lock().unwrap() = data_dir.clone();
@@ -31,7 +35,7 @@ pub fn run() {
         // Create data directory if it doesn't exist
         let _ = std::fs::create_dir_all(&data_dir);
         
-        let log_file_path = format!("{}/backend.log", data_dir);
+        let log_file_path = data_dir.join("backend.log");
         
         // Create log file
         let log_file = match File::create(&log_file_path) {
@@ -47,7 +51,7 @@ pub fn run() {
 
         // Spawn backend with stdout/stderr redirected to log file
         let child = match Command::new("./resources/pyyomi-backend")
-            .args(["--port", &port.to_string(), "--data-dir", &data_dir])
+            .args(["--port", &port.to_string(), "--data-dir", &data_dir.to_string_lossy()])
             .stdout(Stdio::from(log_file.try_clone().unwrap()))
             .stderr(Stdio::from(log_file))
             .spawn() {
@@ -90,7 +94,7 @@ pub fn run() {
     async fn get_backend_logs(state: State<'_, BackendState>) -> Result<String, String> {
         // Get log file path from stored data directory
         let data_dir = state.2.lock().unwrap().clone();
-        let log_file_path = format!("{}/backend.log", data_dir);
+        let log_file_path = data_dir.join("backend.log");
         
         match std::fs::read_to_string(&log_file_path) {
             Ok(content) => Ok(content),
@@ -115,7 +119,7 @@ pub fn run() {
         use reqwest::Client;
         let client = Client::new();
         
-        for attempt in 0..60 {
+        for _ in 0..60 {
             match client.get(&format!("http://127.0.0.1:{}/health", port)).send().await {
                 Ok(response) if response.status().is_success() => {
                     return Ok(());
@@ -129,7 +133,7 @@ pub fn run() {
     }
 
     tauri::Builder::default()
-        .manage(BackendState(Mutex::new(None), Mutex::new(None), Mutex::new(String::from("./data"))))
+        .manage(BackendState(Mutex::new(None), Mutex::new(None), Mutex::new(PathBuf::from("./data"))))
         .invoke_handler(tauri::generate_handler![
             start_backend,
             backend_url,
@@ -138,7 +142,8 @@ pub fn run() {
         ])
         .setup(|app| {
             // Create data directory
-            let data_dir = get_data_dir();
+            let app_handle = app.handle();
+            let data_dir = get_data_dir(&app_handle);
             let _ = std::fs::create_dir_all(&data_dir);
             
             if cfg!(debug_assertions) {
