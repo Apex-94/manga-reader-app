@@ -1,106 +1,84 @@
 // Desktop app initialization script
 // This script is loaded before the main app to configure the API base URL
 
-// Declare Tauri types for TypeScript
+import { invoke } from '@tauri-apps/api/core';
+
 declare global {
   interface Window {
-    __TAURI__?: {
-      core: {
-        invoke: (command: string, args?: Record<string, unknown>) => Promise<unknown>;
-      };
-      window: {
-        getCurrentWindow: () => {
-          toggleDevTools: () => void;
-        };
-      };
-    };
     __BACKEND_URL__?: string;
   }
 }
 
 export async function startBackend(): Promise<string> {
-  // Wait for Tauri to be ready
-  let tauri = window.__TAURI__;
-  let retries = 0;
-  
-  while (!tauri && retries < 50) {
-    await new Promise(resolve => setTimeout(resolve, 100));
-    tauri = window.__TAURI__;
-    retries++;
-  }
-  
-  if (tauri) {
-    try {
-      console.log('[Desktop] Starting backend...');
-      const url = await tauri.core.invoke('start_backend') as string;
-      console.log('[Desktop] Backend started at:', url);
-      window.__BACKEND_URL__ = url;
-      return url;
-    } catch (error) {
-      console.error('[Desktop] Failed to start backend:', error);
-      window.__BACKEND_URL__ = 'http://localhost:8000';
-      return 'http://localhost:8000';
-    }
-  } else {
-    console.log('[Web] Not running in Tauri, using default backend URL');
+  try {
+    console.log('[Desktop] Starting backend...');
+    const url = await invoke<string>('start_backend');
+    console.log('[Desktop] Backend started at:', url);
+    window.__BACKEND_URL__ = url;
+    return url;
+  } catch (error) {
+    console.error('[Desktop] Failed to start backend:', error);
     window.__BACKEND_URL__ = 'http://localhost:8000';
     return 'http://localhost:8000';
   }
 }
 
 export async function getBackendUrl(): Promise<string> {
-  const tauri = window.__TAURI__;
-  if (tauri) {
-    try {
-      const url = await tauri.core.invoke('backend_url') as string;
-      console.log('[Desktop] Backend URL:', url);
-      window.__BACKEND_URL__ = url;
-      return url;
-    } catch (error) {
-      console.error('[Desktop] Failed to get backend URL:', error);
-      // Try to start backend if not running
-      return startBackend();
-    }
-  } else {
-    console.log('[Web] Not running in Tauri, using default backend URL');
-    window.__BACKEND_URL__ = 'http://localhost:8000';
-    return 'http://localhost:8000';
+  try {
+    const url = await invoke<string>('backend_url');
+    console.log('[Desktop] Backend URL:', url);
+    window.__BACKEND_URL__ = url;
+    return url;
+  } catch (error) {
+    console.error('[Desktop] Failed to get backend URL:', error);
+    // Try to start backend if not running
+    return startBackend();
   }
 }
 
 export async function getBackendLogs(): Promise<string> {
-  const tauri = window.__TAURI__;
-  if (tauri) {
-    try {
-      const logs = await tauri.core.invoke('get_backend_logs') as string;
-      return logs;
-    } catch (error) {
-      console.error('[Desktop] Failed to get backend logs:', error);
-      return 'Failed to get logs';
-    }
-  }
-  return 'Not running in Tauri';
-}
-
-export function toggleDevTools(): void {
-  const tauri = window.__TAURI__;
-  if (tauri) {
-    try {
-      const win = tauri.window.getCurrentWindow();
-      win.toggleDevTools();
-    } catch (error) {
-      console.error('[Desktop] Failed to toggle devtools:', error);
-    }
+  try {
+    const logs = await invoke<string>('get_backend_logs');
+    return logs;
+  } catch (error) {
+    console.error('[Desktop] Failed to get backend logs:', error);
+    return 'Failed to get logs';
   }
 }
 
 export function isTauri(): boolean {
-  return !!window.__TAURI__;
+  // Check if running in Tauri by checking if the invoke function is available
+  // In Tauri 2.0, we check if we're in a Tauri webview
+  if (typeof window === 'undefined') return false;
+  
+  // Check for Tauri internals
+  if ((window as any).__TAURI_INTERNALS__) return true;
+  
+  // Check protocol
+  if (window.location.protocol === 'tauri:') return true;
+  
+  // Check for Tauri global
+  if ((window as any).__TAURI__) return true;
+  
+  return false;
 }
 
 // Initialize on load - start backend first
-(function() {
-  startBackend().then((url) => {
+export async function initializeBackend(): Promise<string> {
+  // Check if we're in Tauri
+  if (isTauri()) {
+    console.log('[Desktop] Running in Tauri, starting backend...');
+    const url = await startBackend();
     window.dispatchEvent(new CustomEvent('backend-ready', { detail: { url } }));
-  });
-})();
+    return url;
+  } else {
+    console.log('[Web] Not running in Tauri, using default backend URL');
+    const url = 'http://localhost:8000';
+    window.__BACKEND_URL__ = url;
+    window.dispatchEvent(new CustomEvent('backend-ready', { detail: { url } }));
+    return url;
+  }
+}
+
+// Auto-initialize
+initializeBackend();
