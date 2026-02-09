@@ -1,6 +1,13 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Home as HomeIcon, Search, Library, BookOpen } from 'lucide-react';
+import { Home as HomeIcon, Search, Library, BookOpen, Folder, History } from 'lucide-react';
+import {
+  Box,
+  Button,
+  Paper,
+  Typography,
+  useTheme,
+} from '@mui/material';
 
 interface NavItemProps {
     icon: React.ReactNode;
@@ -9,53 +16,161 @@ interface NavItemProps {
     onClick: () => void;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick }) => (
-    <button 
-        onClick={onClick}
-        className={`flex flex-col items-center gap-1 w-full transition-all group relative ${active ? 'text-indigo-400' : 'text-zinc-500 hover:text-zinc-300'}`}
+const NavItem: React.FC<NavItemProps> = ({ icon, label, active, onClick }) => {
+  const theme = useTheme();
+
+  return (
+    <Button
+      onClick={onClick}
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 0.5,
+        width: '100%',
+        transition: 'all 0.2s ease',
+        position: 'relative',
+        color: active ? theme.palette.primary.main : theme.palette.text.secondary,
+        '&:hover': {
+          color: theme.palette.text.primary,
+        },
+      }}
     >
-        <div className={`p-2.5 rounded-xl transition-all duration-300 ${active ? 'bg-indigo-500/10 scale-110' : 'group-hover:bg-zinc-800'}`}>
-            {React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: 'w-6 h-6' })}
-        </div>
-        <span className={`text-[10px] font-medium transition-opacity ${active ? 'opacity-100' : 'opacity-70 group-hover:opacity-100'}`}>
-            {label}
-        </span>
-        {active && <span className="absolute -right-2 top-3 w-1 h-1 rounded-full bg-indigo-400 md:block hidden" />}
-    </button>
-);
+      <Box sx={{
+        p: 1,
+        borderRadius: '12px',
+        transition: 'all 0.3s ease',
+        bgcolor: active ? `${theme.palette.primary.main}20` : 'transparent',
+        transform: active ? 'scale(1.1)' : 'scale(1)',
+        '&:hover': {
+          bgcolor: theme.palette.action.hover,
+        },
+      }}>
+        <Box sx={{ width: 24, height: 24 }}>
+          {React.cloneElement(icon as React.ReactElement, {})}
+        </Box>
+      </Box>
+      <Typography variant="caption" sx={{
+        fontSize: '0.625rem',
+        fontWeight: 500,
+        opacity: active ? 1 : 0.7,
+        transition: 'opacity 0.2s ease',
+        '&:hover': {
+          opacity: 1,
+        },
+      }}>
+        {label}
+      </Typography>
+      {active && (
+        <Box sx={{
+          position: 'absolute',
+          right: -8,
+          top: 12,
+          width: 4,
+          height: 4,
+          borderRadius: '50%',
+          bgcolor: theme.palette.primary.main,
+          display: { md: 'block', xs: 'none' },
+        }} />
+      )}
+    </Button>
+  );
+};
 
 export const Navbar: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const isActive = (path: string) => location.pathname === path;
+    const theme = useTheme();
 
     return (
-        <nav className="fixed left-0 top-0 h-screen w-20 bg-zinc-950 border-r border-zinc-800 flex flex-col items-center py-8 z-50 hidden md:flex">
-            <div className="mb-12 cursor-pointer" onClick={() => navigate('/')}>
-                <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-900/30 ring-1 ring-white/10">
-                    <BookOpen className="text-white w-5 h-5" />
-                </div>
-            </div>
+        <Paper
+            elevation={3}
+            sx={{
+                position: 'fixed',
+                left: 0,
+                top: 0,
+                height: '100vh',
+                width: 80,
+                bgcolor: theme.palette.background.paper,
+                borderRight: 1,
+                borderColor: theme.palette.divider,
+                display: { md: 'flex', xs: 'none' },
+                flexDirection: 'column',
+                alignItems: 'center',
+                py: 4,
+                zIndex: 50,
+            }}
+        >
+            <Box
+                sx={{
+                    mb: 3,
+                    cursor: 'pointer',
+                    width: 40,
+                    height: 40,
+                    borderRadius: '12px',
+                    background: 'linear-gradient(to bottom right, #4f46e5, #7c3aed)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 4px 20px rgba(79, 70, 229, 0.3)',
+                    border: 1,
+                    borderColor: 'rgba(255, 255, 255, 0.1)',
+                }}
+                onClick={() => navigate('/')}
+            >
+                <Box sx={{ width: 20, height: 20, color: '#fff' }}>
+                  <BookOpen />
+                </Box>
+            </Box>
             
-            <div className="flex flex-col gap-8 w-full px-2">
+            <Box sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+                width: '100%',
+                px: 0.5,
+            }}>
                 <NavItem icon={<HomeIcon />} label="Home" active={isActive('/')} onClick={() => navigate('/')} />
                 <NavItem icon={<Search />} label="Search" active={isActive('/search')} onClick={() => navigate('/search')} />
                 <NavItem icon={<Library />} label="Library" active={isActive('/library')} onClick={() => navigate('/library')} />
-            </div>
-        </nav>
-    );
+                <NavItem icon={<Folder />} label="Categories" active={isActive('/categories')} onClick={() => navigate('/categories')} />
+                <NavItem icon={<History />} label="History" active={isActive('/history')} onClick={() => navigate('/history')} />
+            </Box>
+        </Paper>
+     );
 };
 
 export const MobileNav: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const isActive = (path: string) => location.pathname === path;
+    const theme = useTheme();
 
     return (
-        <nav className="fixed bottom-0 left-0 w-full bg-zinc-950/90 backdrop-blur-lg border-t border-zinc-800 flex justify-around py-4 z-50 md:hidden pb-safe">
+        <Paper
+            elevation={3}
+            sx={{
+                position: 'fixed',
+                bottom: 0,
+                left: 0,
+                width: '100%',
+                bgcolor: `${theme.palette.background.paper}e5`,
+                backdropFilter: 'blur(12px)',
+                borderTop: 1,
+                borderColor: theme.palette.divider,
+                display: { md: 'none', xs: 'flex' },
+                justifyContent: 'space-around',
+                alignItems: 'center',
+                py: 1,
+                zIndex: 50,
+            }}
+        >
              <NavItem icon={<HomeIcon />} label="Home" active={isActive('/')} onClick={() => navigate('/')} />
              <NavItem icon={<Search />} label="Search" active={isActive('/search')} onClick={() => navigate('/search')} />
              <NavItem icon={<Library />} label="Library" active={isActive('/library')} onClick={() => navigate('/library')} />
-        </nav>
+             <NavItem icon={<Folder />} label="Categories" active={isActive('/categories')} onClick={() => navigate('/categories')} />
+             <NavItem icon={<History />} label="History" active={isActive('/history')} onClick={() => navigate('/history')} />
+        </Paper>
     );
 };

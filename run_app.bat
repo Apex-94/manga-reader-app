@@ -1,14 +1,24 @@
 @echo off
-echo Starting PyYomi App...
-echo.
-echo Ensuring Docker is running...
-docker info >nul 2>&1
-if %errorlevel% neq 0 (
-    echo Error: Docker is not running. Please start Docker Desktop and try again.
-    pause
-    exit /b
+echo Starting PyYomi Electron App...
+cd /d "%~dp0"
+
+if not exist "frontend\node_modules" (
+  echo Installing frontend dependencies...
+  call npm install --prefix frontend
 )
 
-echo Building and starting containers...
-docker compose up --build
-pause
+if not exist "electron\node_modules" (
+  echo Installing electron dependencies...
+  call npm install --prefix electron
+)
+
+echo Building frontend...
+call npm run build --prefix frontend
+if %errorlevel% neq 0 (
+  echo Frontend build failed.
+  pause
+  exit /b %errorlevel%
+)
+
+echo Launching Electron...
+call npm run start --prefix electron
