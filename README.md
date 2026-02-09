@@ -281,6 +281,15 @@ npm run build:all
 - Deferred runtime (experimental): `desktop/` (Tauri)
 - This milestone validates Electron only for acceptance criteria
 
+### Recent Stabilization Changes (Feb 9, 2026)
+
+- Frontend desktop bootstrap now avoids Tauri invoke calls when running in Electron.
+- Backend CORS allowlist includes both \\localhost\\ and \\127.0.0.1\\ origins for desktop dev ports.
+- Electron startup suppresses noisy BrokenPipe/EPIPE crash popups by disabling backend console stream logging in desktop mode.
+- Reader top bar/back button no longer collides with single-page nav click-zones at narrow window sizes.
+- Settings page uses dropdowns for default reader mode and reading direction.
+
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                   Electron Desktop Shell                     │
@@ -630,3 +639,4 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 ---
 
 **Happy Reading! 📚🎉**
+
