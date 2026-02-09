@@ -1,23 +1,18 @@
 {
-    "name":  "pyyomi-root",
-    "private":  true,
-    "scripts":  {
-                    "frontend:install":  "npm install --prefix frontend",
-                    "frontend:build":  "npm run build --prefix frontend",
-                    "frontend:typecheck":  "cd frontend \u0026\u0026 npx tsc --noEmit",
-                    "electron:install":  "npm install --prefix electron",
-                    "electron:dev":  "npm run start --prefix electron",
-                    "electron:build":  "npm run build --prefix electron",
-                    "electron:build:win":  "npm run build:win --prefix electron"
-                },
-    "keywords":  [
-                     "manga",
-                     "reader",
-                     "desktop",
-                     "pyyomi",
-                     "electron"
-                 ],
-    "author":  "Pyyomi",
-    "license":  "MIT",
-    "description":  "Manga Reader Desktop App - Electron Runtime"
+  "name": "pyyomi-root",
+  "private": true,
+  "scripts": {
+    "frontend:install": "npm install --prefix frontend",
+    "frontend:build": "npm run build --prefix frontend",
+    "frontend:typecheck": "cd frontend && npx tsc --noEmit",
+    "backend:build-binary": "powershell -ExecutionPolicy Bypass -File backend/scripts/build_backend_binary.ps1",
+    "electron:install": "npm install --prefix electron",
+    "electron:dev": "npm run start --prefix electron",
+    "electron:build": "npm run backend:build-binary && npm run frontend:build && npm run build --prefix electron",
+    "electron:build:win": "npm run backend:build-binary && npm run frontend:build && npm run build:win --prefix electron"
+  },
+  "keywords": ["manga", "reader", "desktop", "pyyomi", "electron"],
+  "author": "Pyyomi",
+  "license": "MIT",
+  "description": "Manga Reader Desktop App - Electron Runtime"
 }

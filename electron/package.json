@@ -45,33 +45,12 @@
     ],
     "extraResources": [
       {
-        "from": "../backend/",
-        "to": "backend/",
-        "filter": [
-          "!**/*",
-          "app/**/*",
-          "!app/__pycache__/*",
-          "!app/api/__pycache__/*",
-          "!app/db/__pycache__/*",
-          "!app/extensions/*",
-          "library.db",
-          "library.json.bak"
-        ]
+        "from": "../backend/dist/pyyomi-backend.exe",
+        "to": "backend/pyyomi-backend.exe"
       },
       {
         "from": "../frontend/dist/",
         "to": "frontend/dist/",
-        "filter": [
-          "**/*"
-        ]
-      },
-      {
-        "from": "../frontend/package.json",
-        "to": "frontend/package.json"
-      },
-      {
-        "from": "../frontend/node_modules/",
-        "to": "frontend/node_modules/",
         "filter": [
           "**/*"
         ]

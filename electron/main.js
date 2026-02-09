@@ -33,15 +33,70 @@ function getBackendPython(backendDir) {
   return 'python';
 }
 
-function startBackend() {
-  return new Promise((resolve) => {
-    const backendDir = getBackendDir();
-    const pythonPath = getBackendPython(backendDir);
+function getBackendExecutablePath() {
+  const candidates = [
+    path.join(process.resourcesPath || '', 'backend', 'pyyomi-backend.exe'),
+    path.join(__dirname, '..', 'backend', 'dist', 'pyyomi-backend.exe'),
+    path.join(__dirname, '..', '..', 'backend', 'dist', 'pyyomi-backend.exe'),
+  ];
+  return candidates.find((p) => fs.existsSync(p)) || null;
+}
 
-    console.log('Starting backend with Python:', pythonPath);
+function waitForBackendReady(url, timeoutMs = 15000) {
+  return new Promise((resolve) => {
+    const start = Date.now();
+
+    const check = () => {
+      const req = http.get(url, (res) => {
+        res.resume();
+        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 500) {
+          resolve(true);
+          return;
+        }
+        retry();
+      });
+
+      req.on('error', retry);
+      req.setTimeout(1500, () => {
+        req.destroy();
+        retry();
+      });
+    };
+
+    const retry = () => {
+      if (Date.now() - start >= timeoutMs) {
+        resolve(false);
+        return;
+      }
+      setTimeout(check, 500);
+    };
+
+    check();
+  });
+}
+
+function startBackend() {
+  return new Promise(async (resolve) => {
+    const backendUrl = 'http://127.0.0.1:8000';
+    const healthUrl = `${backendUrl}/health`;
+    const dataDir = app.isPackaged
+      ? path.join(app.getPath('userData'), 'data')
+      : path.join(getBackendDir(), 'data');
+    fs.mkdirSync(dataDir, { recursive: true });
+
+    const bundledBackendExe = getBackendExecutablePath();
+    const canUseBundledExe = Boolean(bundledBackendExe && app.isPackaged);
+    const backendDir = getBackendDir();
+    const backendCommand = canUseBundledExe ? bundledBackendExe : getBackendPython(backendDir);
+    const backendArgs = canUseBundledExe
+      ? ['--port', '8000', '--data-dir', dataDir]
+      : ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8000'];
+
+    console.log('Starting backend command:', backendCommand);
+    console.log('Backend mode:', canUseBundledExe ? 'bundled-exe' : 'python-uvicorn');
     backendProcess = spawn(
-      pythonPath,
-      ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8000'],
+      backendCommand,
+      backendArgs,
       {
         cwd: backendDir,
         stdio: 'pipe',
@@ -54,15 +109,9 @@ function startBackend() {
       }
     );
 
-    let started = false;
-
     backendProcess.stdout.on('data', (data) => {
       const output = data.toString();
       console.log('Backend:', output);
-      if (output.includes('Started server process') && !started) {
-        started = true;
-        resolve(true);
-      }
     });
 
     backendProcess.stderr.on('data', (data) => {
@@ -79,12 +128,13 @@ function startBackend() {
       resolve(false);
     });
 
-    setTimeout(() => {
-      if (!started) {
-        console.log('Backend startup timeout, proceeding anyway...');
-        resolve(true);
-      }
-    }, 15000);
+    const ready = await waitForBackendReady(healthUrl, 20000);
+    if (!ready) {
+      console.error('Backend health check failed:', healthUrl);
+      resolve(false);
+      return;
+    }
+    resolve(true);
   });
 }
 
