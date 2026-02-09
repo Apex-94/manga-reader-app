@@ -18,6 +18,26 @@ declare global {
   }
 }
 
+export async function startBackend(): Promise<string> {
+  if (window.__TAURI__) {
+    try {
+      console.log('[Desktop] Starting backend...');
+      const url = await window.__TAURI__.core.invoke('start_backend') as string;
+      console.log('[Desktop] Backend started at:', url);
+      window.__BACKEND_URL__ = url;
+      return url;
+    } catch (error) {
+      console.error('[Desktop] Failed to start backend:', error);
+      window.__BACKEND_URL__ = 'http://localhost:8000';
+      return 'http://localhost:8000';
+    }
+  } else {
+    console.log('[Web] Not running in Tauri, using default backend URL');
+    window.__BACKEND_URL__ = 'http://localhost:8000';
+    return 'http://localhost:8000';
+  }
+}
+
 export async function getBackendUrl(): Promise<string> {
   if (window.__TAURI__) {
     try {
@@ -27,8 +47,8 @@ export async function getBackendUrl(): Promise<string> {
       return url;
     } catch (error) {
       console.error('[Desktop] Failed to get backend URL:', error);
-      window.__BACKEND_URL__ = 'http://localhost:8000';
-      return 'http://localhost:8000';
+      // Try to start backend if not running
+      return startBackend();
     }
   } else {
     console.log('[Web] Not running in Tauri, using default backend URL');
@@ -65,9 +85,9 @@ export function isTauri(): boolean {
   return !!window.__TAURI__;
 }
 
-// Initialize on load
+// Initialize on load - start backend first
 (function() {
-  getBackendUrl().then((url) => {
+  startBackend().then((url) => {
     window.dispatchEvent(new CustomEvent('backend-ready', { detail: { url } }));
   });
 })();
