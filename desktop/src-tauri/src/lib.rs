@@ -49,17 +49,30 @@ pub fn run() {
         // Find free port
         let port = find_free_port().await;
 
+        // Get the resource directory path
+        let resource_dir = app_handle.path().resource_dir()
+            .unwrap_or_else(|_| std::env::current_dir().unwrap_or_default());
+        
+        // Path to backend executable
+        let backend_path = resource_dir.join("pyyomi-backend.exe");
+        
+        println!("[Backend] Starting backend from: {:?}", backend_path);
+        println!("[Backend] Data directory: {:?}", data_dir);
+        println!("[Backend] Port: {}", port);
+
         // Spawn backend with stdout/stderr redirected to log file
-        let child = match Command::new("./resources/pyyomi-backend")
+        let child = match Command::new(&backend_path)
             .args(["--port", &port.to_string(), "--data-dir", &data_dir.to_string_lossy()])
             .stdout(Stdio::from(log_file.try_clone().unwrap()))
             .stderr(Stdio::from(log_file))
             .spawn() {
             Ok(child) => {
+                println!("[Backend] Backend started successfully");
                 child
             }
             Err(e) => {
-                let error_msg = format!("Failed to spawn backend: {}", e);
+                let error_msg = format!("Failed to spawn backend from {:?}: {}", backend_path, e);
+                println!("[Backend] {}", error_msg);
                 return Err(error_msg);
             }
         };
