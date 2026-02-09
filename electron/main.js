@@ -1,12 +1,30 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
+
+const electronModule = require('electron');
+if (typeof electronModule === 'string') {
+  // Guard against ELECTRON_RUN_AS_NODE leaking into app launch.
+  const relaunchedEnv = { ...process.env };
+  delete relaunchedEnv.ELECTRON_RUN_AS_NODE;
+  const relaunched = spawn(electronModule, process.argv.slice(1), {
+    env: relaunchedEnv,
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+  });
+  relaunched.unref();
+  process.exit(0);
+}
+
+const { app, BrowserWindow, ipcMain, shell, dialog } = electronModule;
 const fs = require('fs');
 const http = require('http');
+const net = require('net');
 
 let mainWindow;
 let backendProcess;
 let frontendProcess;
+let activeBackendUrl = null;
 
 const isWindows = process.platform === 'win32';
 const npmCommand = isWindows ? 'npm.cmd' : 'npm';
@@ -75,25 +93,66 @@ function waitForBackendReady(url, timeoutMs = 15000) {
   });
 }
 
+function findAvailablePort(start = 8000, end = 8100) {
+  return new Promise((resolve) => {
+    let port = start;
+
+    const tryNext = () => {
+      if (port > end) {
+        resolve(null);
+        return;
+      }
+
+      const server = net.createServer();
+      server.once('error', () => {
+        port += 1;
+        tryNext();
+      });
+      server.once('listening', () => {
+        const selected = port;
+        server.close(() => resolve(selected));
+      });
+      server.listen(port, '127.0.0.1');
+    };
+
+    tryNext();
+  });
+}
+
 function startBackend() {
   return new Promise(async (resolve) => {
-    const backendUrl = 'http://127.0.0.1:8000';
+    const selectedPort = await findAvailablePort(8000, 8100);
+    if (!selectedPort) {
+      console.error('No available backend port found in range 8000-8100');
+      resolve(false);
+      return;
+    }
+
+    const backendUrl = `http://127.0.0.1:${selectedPort}`;
     const healthUrl = `${backendUrl}/health`;
     const dataDir = app.isPackaged
       ? path.join(app.getPath('userData'), 'data')
       : path.join(getBackendDir(), 'data');
+    const logsDir = path.join(app.getPath('userData'), 'logs');
     fs.mkdirSync(dataDir, { recursive: true });
+    fs.mkdirSync(logsDir, { recursive: true });
+    const electronLogPath = path.join(logsDir, 'electron-main.log');
+    const appendElectronLog = (line) => {
+      const text = `[${new Date().toISOString()}] ${line}\n`;
+      fs.appendFileSync(electronLogPath, text, { encoding: 'utf8' });
+    };
 
     const bundledBackendExe = getBackendExecutablePath();
     const canUseBundledExe = Boolean(bundledBackendExe && app.isPackaged);
     const backendDir = getBackendDir();
     const backendCommand = canUseBundledExe ? bundledBackendExe : getBackendPython(backendDir);
     const backendArgs = canUseBundledExe
-      ? ['--port', '8000', '--data-dir', dataDir]
-      : ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8000'];
+      ? ['--port', String(selectedPort), '--data-dir', dataDir]
+      : ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', String(selectedPort)];
 
     console.log('Starting backend command:', backendCommand);
     console.log('Backend mode:', canUseBundledExe ? 'bundled-exe' : 'python-uvicorn');
+    appendElectronLog(`Starting backend: ${backendCommand} ${backendArgs.join(' ')}`);
     backendProcess = spawn(
       backendCommand,
       backendArgs,
@@ -112,28 +171,39 @@ function startBackend() {
     backendProcess.stdout.on('data', (data) => {
       const output = data.toString();
       console.log('Backend:', output);
+      appendElectronLog(`[backend:stdout] ${output.trim()}`);
     });
 
     backendProcess.stderr.on('data', (data) => {
       const output = data.toString();
       if (isBrokenPipeError(output)) {
         console.warn('Backend stream warning ignored:', output.trim());
+        appendElectronLog(`[backend:stderr:ignored] ${output.trim()}`);
         return;
       }
       console.error('Backend Error:', output);
+      appendElectronLog(`[backend:stderr] ${output.trim()}`);
     });
 
     backendProcess.on('error', (err) => {
       console.error('Failed to start backend:', err);
+      appendElectronLog(`[backend:error] ${String(err?.message || err)}`);
       resolve(false);
+    });
+
+    backendProcess.on('exit', (code, signal) => {
+      appendElectronLog(`[backend:exit] code=${String(code)} signal=${String(signal)}`);
     });
 
     const ready = await waitForBackendReady(healthUrl, 20000);
     if (!ready) {
       console.error('Backend health check failed:', healthUrl);
+      appendElectronLog(`Backend health check failed: ${healthUrl}`);
       resolve(false);
       return;
     }
+    appendElectronLog(`Backend ready: ${backendUrl}`);
+    activeBackendUrl = backendUrl;
     resolve(true);
   });
 }
@@ -288,7 +358,15 @@ async function createWindow() {
   console.log('Starting services...');
   const backendOk = await startBackend();
   console.log('Backend started:', backendOk);
-  process.env.PYYOMI_BACKEND_URL = 'http://127.0.0.1:8000';
+  if (!backendOk || !activeBackendUrl) {
+    dialog.showErrorBox(
+      'Backend Startup Failed',
+      `PyYomi backend failed to start.\nCheck logs at:\n${path.join(app.getPath('userData'), 'logs', 'electron-main.log')}\n${path.join(app.getPath('userData'), 'data', 'backend.log')}`
+    );
+    app.quit();
+    return;
+  }
+  process.env.PYYOMI_BACKEND_URL = activeBackendUrl;
 
   const frontendOk = await startFrontend();
   console.log('Frontend started:', frontendOk);

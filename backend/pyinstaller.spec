@@ -1,11 +1,28 @@
+from PyInstaller.utils.hooks import collect_submodules
+
 block_cipher = None
+
+extension_modules = collect_submodules('app.extensions')
+runtime_hidden_imports = [
+    'fastapi',
+    'uvicorn',
+    'pydantic',
+    'httpx',
+    'bs4',
+    'soupsieve',
+    'lxml',
+    'sqlmodel',
+    'sqlalchemy',
+    'alembic',
+    'apscheduler',
+]
 
 a = Analysis(
     ['app/main.py'],
     pathex=[],
     binaries=[],
     datas=[('app/extensions', 'app/extensions')],
-    hiddenimports=['fastapi', 'uvicorn', 'pydantic'],
+    hiddenimports=runtime_hidden_imports + extension_modules,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

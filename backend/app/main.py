@@ -4,6 +4,7 @@ import sys
 import argparse
 import logging
 from datetime import datetime
+import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.extensions.loader import initialize_extensions
@@ -164,3 +165,11 @@ def create_app() -> FastAPI:
 
 # instantiate the app for ASGI servers
 app = create_app()
+
+if __name__ == "__main__":
+    uvicorn.run(
+        app,
+        host="127.0.0.1",
+        port=args.port,
+        log_level="info",
+    )
