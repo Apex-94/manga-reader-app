@@ -10,13 +10,81 @@ export interface Manga {
   id: string;
   title: string;
   altTitle: string;
-  author: string;
+  author: string | null;
   status: 'Ongoing' | 'Completed' | 'Hiatus';
   genres: string[];
   description: string;
   coverUrl: string;
   rating: number;
   chapters: Chapter[];
+}
+
+export interface Category {
+  id: number;
+  name: string;
+  created_at: string;
+}
+
+export interface MangaCategory {
+  manga_id: number;
+  category_id: number;
+}
+
+export interface ReadingProgress {
+  id: number;
+  manga_id: number;
+  chapter_number: number;
+  page_number: number;
+  updated_at: string;
+}
+
+export interface HistoryEntry {
+  id: number;
+  manga_id: number;
+  chapter_number: number;
+  read_at: string;
+  manga?: {
+    id: number;
+    title: string;
+    thumbnail_url: string | null;
+    source: string;
+  };
+  chapter?: {
+    id: number | null;
+    title: string | null;
+  };
+}
+
+export interface DownloadItem {
+  id: number;
+  manga_id: number;
+  manga_title: string;
+  chapter_number: number;
+  chapter_title?: string | null;
+  chapter_url?: string | null;
+  source?: string | null;
+  status: 'pending' | 'downloading' | 'paused' | 'completed' | 'failed' | 'cancelled';
+  progress: number;
+  error?: string | null;
+  file_path?: string | null;
+  total_pages: number;
+  downloaded_pages: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpdateItem {
+  id: number;
+  manga_id: number;
+  manga_title: string;
+  manga_url: string;
+  source: string;
+  chapter_number: number;
+  chapter_title?: string | null;
+  chapter_url: string;
+  is_read: boolean;
+  is_downloaded: boolean;
+  created_at: string;
 }
 
 export interface Message {
@@ -27,3 +95,17 @@ export interface Message {
 }
 
 export type ViewState = 'HOME' | 'DETAIL' | 'READER';
+
+export type ReadingMode = 'VERTICAL' | 'SINGLE' | 'DOUBLE';
+
+export type ZoomMode = 'FIT_WIDTH' | 'FIT_HEIGHT' | 'CUSTOM';
+
+export interface ReaderSettings {
+  readingMode: ReadingMode;
+  zoomMode: ZoomMode;
+  customZoom: number;
+  autoScroll: boolean;
+  scrollSpeed: number;
+  showPageNumbers: boolean;
+  showProgress: boolean;
+}

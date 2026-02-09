@@ -1,104 +1,77 @@
-name: CI • Build & Publish
+name: CI
 
 on:
   push:
-    branches: [ "master", "main" ]
+    branches: ["main", "feature/pivot-to-app"]
   pull_request:
 
 jobs:
-  build-test:
+  backend-and-frontend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # ---------- Backend ----------
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install backend deps
+
+      - name: Install backend dependencies
         working-directory: backend
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Backend smoke import
-        working-directory: backend
-        run: |
-          python - <<'PY'
-          import importlib
-          importlib.import_module("app.main")
-          print("Backend import OK")
-          PY
 
-      # ---------- Frontend ----------
+      - name: Backend import smoke test
+        working-directory: backend
+        run: python -c "import app.main; print('backend import ok')"
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install frontend deps
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+
+      - name: Install frontend dependencies
         working-directory: frontend
-        run: npm install   # ✅ works without a lockfile
-      - name: Build frontend
+        run: npm ci
+
+      - name: Frontend typecheck
         working-directory: frontend
-        env:
-          NEXT_PUBLIC_API_URL: http://localhost:8000
+        run: npx tsc --noEmit
+
+      - name: Frontend build
+        working-directory: frontend
         run: npm run build
 
-  docker:
-    if: github.event_name == 'push'   # only publish images on branch pushes
-    needs: build-test
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
+  electron-package-smoke:
+    runs-on: windows-latest
+    needs: backend-and-frontend
     steps:
       - uses: actions/checkout@v4
 
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Login to GHCR
-        uses: docker/login-action@v3
+      - uses: actions/setup-node@v4
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+            electron/package-lock.json
 
-      - id: meta_backend
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/manga-reader-backend
-          tags: |
-            type=ref,event=branch
-            type=sha
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
 
-      - name: Build & push backend
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          file: ./backend/Dockerfile
-          push: true
-          platforms: linux/amd64
-          tags: ${{ steps.meta_backend.outputs.tags }}
-          labels: ${{ steps.meta_backend.outputs.labels }}
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
 
-      - id: meta_frontend
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/manga-reader-frontend
-          tags: |
-            type=ref,event=branch
-            type=sha
+      - name: Install electron dependencies
+        working-directory: electron
+        run: npm ci
 
-      - name: Build & push frontend
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          push: true
-          platforms: linux/amd64
-          build-args: |
-            NEXT_PUBLIC_API_URL=http://localhost:8000
-          tags: ${{ steps.meta_frontend.outputs.tags }}
-          labels: ${{ steps.meta_frontend.outputs.labels }}
+      - name: Build unpacked windows app (smoke)
+        working-directory: electron
+        run: npm run build -- --win --dir

@@ -2,7 +2,27 @@ import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { api, getProxyUrl } from "../../lib/api";
-import { Sparkles, BookOpen, Filter, X, SlidersHorizontal, ChevronDown, ChevronUp } from "lucide-react";
+import { Sparkles, BookOpen, Filter, SlidersHorizontal } from "lucide-react";
+import { MangaCard } from "../../components/MangaCard";
+import {
+  Box,
+  Card,
+  CardActionArea,
+  CardContent,
+  Typography,
+  Button,
+  Chip,
+  Grid,
+  Paper,
+  Stack,
+  IconButton,
+  TextField,
+  ToggleButtonGroup,
+  ToggleButton,
+  Divider,
+  CircularProgress,
+  Container,
+} from "@mui/material";
 
 interface MangaCard {
   title: string;
@@ -16,91 +36,158 @@ interface MangaCard {
 function HeroSection({ item }: { item: MangaCard }) {
   if (!item) return null;
   return (
-    <div className="relative w-full h-[300px] md:h-[400px] rounded-2xl overflow-hidden mb-10 group shadow-2xl">
+    <Box sx={{
+      position: 'relative',
+      width: '100%',
+      height: { xs: '300px', md: '400px' },
+      borderRadius: 2,
+      overflow: 'hidden',
+      mb: 8,
+      boxShadow: 8,
+      '&:hover .hero-image': {
+        transform: 'scale(1.05)',
+      }
+    }}>
       {/* Background Image with Blur */}
-      <div
-        className="absolute inset-0 bg-cover bg-center blur-sm scale-110 opacity-50 dark:opacity-40 transition-transform duration-1000 group-hover:scale-105"
-        style={{ backgroundImage: `url(${item.thumbnail_url})` }}
+      <Box
+        className="hero-image"
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage: `url(${item.thumbnail_url})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          filter: 'blur(8px)',
+          transform: 'scale(1.1)',
+          opacity: { light: 0.5, dark: 0.4 },
+          transition: 'transform 1s ease',
+        }}
       />
-      <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/60 to-transparent" />
+      <Box sx={{
+        position: 'absolute',
+        inset: 0,
+        background: 'linear-gradient(to right, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 60%, transparent 100%)',
+      }} />
 
-      <div className="absolute inset-0 p-8 flex flex-col justify-center max-w-2xl">
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold w-fit mb-4">
-          <Sparkles className="w-3 h-3" /> FEATURED
-        </span>
-        <h2 className="text-3xl md:text-5xl font-black text-white mb-2 leading-tight tracking-tight">
-          {item.title}
-        </h2>
-        <div className="flex gap-2 mb-4 text-xs md:text-sm text-gray-300 font-medium">
-          {item.genres?.slice(0, 3).map((g, i) => (
-            <span key={i} className="px-2 py-0.5 bg-white/10 rounded">{g}</span>
-          ))}
-        </div>
-        <p className="text-gray-300 text-sm md:text-base line-clamp-3 mb-6 max-w-lg">
-          {item.description}
-        </p>
-        <Link
-          to={`/manga?url=${encodeURIComponent(item.url)}`}
-          className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-3 rounded-xl font-bold transition-all w-fit shadow-lg shadow-indigo-900/50 hover:scale-105"
+      <Box sx={{
+        position: 'absolute',
+        inset: 0,
+        p: { xs: 4, md: 8 },
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        maxWidth: { md: '50%' },
+      }}>
+        <Chip
+          icon={<Sparkles size={14} />}
+          label="FEATURED"
+          sx={{
+            bgcolor: 'rgba(245, 158, 11, 0.2)',
+            color: '#fbbf24',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            borderRadius: '999px',
+            mb: 2,
+            fontWeight: 'bold',
+            fontSize: '0.75rem',
+          }}
+        />
+        <Typography
+          variant="h3"
+          sx={{
+            fontWeight: 'bold',
+            color: 'white',
+            mb: 1,
+            lineHeight: 1.2,
+            letterSpacing: '-0.02em',
+            fontSize: { xs: '1.75rem', md: '3rem' },
+          }}
         >
-          <BookOpen className="w-5 h-5" />
+          {item.title}
+        </Typography>
+        <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+          {item.genres?.slice(0, 3).map((g, i) => (
+            <Chip
+              key={i}
+              label={g}
+              sx={{
+                bgcolor: 'rgba(255, 255, 255, 0.1)',
+                color: 'white',
+                fontSize: '0.75rem',
+              }}
+            />
+          ))}
+        </Stack>
+        <Typography
+          variant="body1"
+          sx={{
+            color: 'rgba(255, 255, 255, 0.7)',
+            mb: 3,
+            display: '-webkit-box',
+            WebkitLineClamp: 3,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            fontSize: { xs: '0.875rem', md: '1rem' },
+          }}
+        >
+          {item.description}
+        </Typography>
+        <Button
+          component={Link}
+          to={`/manga?url=${encodeURIComponent(item.url)}`}
+          startIcon={<BookOpen size={20} />}
+          sx={{
+            bgcolor: '#4f46e5',
+            color: 'white',
+            px: 4,
+            py: 1.5,
+            borderRadius: '12px',
+            fontWeight: 'bold',
+            boxShadow: '0 10px 25px rgba(79, 70, 229, 0.3)',
+            '&:hover': {
+              bgcolor: '#4338ca',
+              transform: 'translateY(-1px)',
+              boxShadow: '0 12px 28px rgba(79, 70, 229, 0.4)',
+            },
+          }}
+        >
           Read Now
-        </Link>
-      </div>
-    </div>
+        </Button>
+      </Box>
+    </Box>
   );
 }
 
-function Card({ key, item, onAdd }: { key?: any, item: MangaCard, onAdd: (item: MangaCard) => void }) {
-  const [imageError, setImageError] = React.useState(false);
-
+function MangaCardComponent({ item, onAdd }: { key?: any, item: MangaCard, onAdd: (item: MangaCard) => void }) {
+  const handleAdd = (e: React.MouseEvent, id: string) => {
+    // Convert browse manga format to library manga format
+    onAdd({
+      title: item.title,
+      url: item.url,
+      thumbnail_url: item.thumbnail_url,
+      source: item.source || '',
+      description: item.description,
+      genres: item.genres || [],
+    });
+  };
+  
   return (
-    <div className="block rounded-xl overflow-hidden border bg-white dark:bg-gray-800 dark:border-gray-700 hover:shadow-xl hover:border-indigo-500/30 transition-all relative group h-full flex flex-col">
-      <Link
-        to={`/manga?url=${encodeURIComponent(item.url)}&source=${encodeURIComponent(item.source)}`}
-        className="block flex-1"
-      >
-        <div className="aspect-[2/3] bg-gray-200 dark:bg-gray-700 overflow-hidden relative">
-          {item.thumbnail_url && !imageError ? (
-            <img
-              src={getProxyUrl(item.thumbnail_url, item.source)}
-              alt={item.title}
-              loading="lazy"
-              onError={() => setImageError(true)}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700">
-              <div className="text-center">
-                <div className="text-3xl mb-2">📚</div>
-                <div className="text-xs text-gray-600 dark:text-gray-300">No image</div>
-              </div>
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-        </div>
-        <div className="p-3">
-          <div className="text-sm font-bold line-clamp-2 text-gray-900 dark:text-gray-100 mb-1 leading-tight group-hover:text-indigo-500 transition-colors">
-            {item.title}
-          </div>
-          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">{item.genres?.slice(0, 2).join(", ")}</div>
-          <div className="text-xs text-gray-500 dark:text-gray-400">{item.source}</div>
-        </div>
-      </Link>
-      <button
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onAdd(item);
-        }}
-        className="absolute top-2 right-2 p-2 bg-indigo-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-lg hover:bg-indigo-500 transform translate-y-2 group-hover:translate-y-0"
-        title="Add to Library"
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-      </button>
-    </div>
+    <MangaCard
+      manga={{
+        id: item.url,
+        title: item.title,
+        altTitle: '',
+        author: null,
+        status: 'Ongoing',
+        genres: item.genres || [],
+        description: '',
+        coverUrl: item.thumbnail_url || '',
+        rating: 0,
+        chapters: []
+      }}
+      isFavorite={false}
+      toggleFavorite={undefined}
+      onAddToLibrary={handleAdd}
+    />
   );
 }
 
@@ -155,7 +242,7 @@ export default function BrowsePage() {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["browse", tab, q, activeFilters, activeSource?.id],
     queryFn: async () => {
-      console.log("Fetching data for", tab, q, activeFilters);
+      console.log("[Browse] Fetching data for", tab);
       if (q.trim() || activeFilters.length > 0) {
         const params: any = { q: q.trim() || "" };
         if (activeFilters.length > 0) {
@@ -165,20 +252,18 @@ export default function BrowsePage() {
           params.source = activeSource.id;
         }
         const resp = await api.get(`/manga/search`, { params });
+        console.log("[Browse] Search results:", resp.data);
         return resp.data;
       }
-      if (tab === "latest") {
-        const resp = await api.get(`/manga/latest`);
-        return resp.data;
-      } else if (tab === "popular") {
-        const resp = await api.get(`/manga/popular`);
-        return resp.data;
-      } else if (tab === "random") {
-        const resp = await api.get(`/manga/random`);
-        return resp.data;
-      }
+      let endpoint = tab === "latest" ? "/manga/latest" : tab === "popular" ? "/manga/popular" : "/manga/random";
+      console.log("[Browse] Fetching from:", endpoint);
+      const resp = await api.get(endpoint);
+      console.log("[Browse] Response:", resp.data);
+      return resp.data;
     },
   });
+  
+  console.log("[Browse] Data state:", { data, isLoading, resultsCount: data?.results?.length });
 
   const queryClient = useQueryClient();
   const addMutation = useMutation({
@@ -196,159 +281,303 @@ export default function BrowsePage() {
   const featuredManga = data?.results && data.results.length > 0 ? data.results[0] : null;
 
   return (
-    <div className="py-8 animate-in fade-in duration-500">
-
+    <Container maxWidth="xl" sx={{ py: 4 }}>
       {!q && !isLoading && featuredManga && <HeroSection item={featuredManga} />}
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 sticky top-[64px] z-20 bg-white/95 dark:bg-gray-800/95 backdrop-blur py-4 px-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        <h1 className="text-3xl font-bold flex items-center gap-3">
-          <span className="w-1.5 h-8 bg-gradient-to-b from-blue-600 to-indigo-600 rounded-full"></span>
-          Browse Manga
-        </h1>
-        <div className="flex flex-wrap gap-3 items-center">
-          <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-lg border border-gray-200 dark:border-gray-600">
-            <button
-              onClick={() => setTab("latest")}
-              className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${tab === "latest"
-                ? "bg-white dark:bg-gray-800 text-indigo-600 shadow-md border border-indigo-200 dark:border-indigo-600"
-                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                }`}
+      <Paper sx={{
+        position: 'sticky',
+        top: 80,
+        zIndex: 20,
+        bgcolor: { light: 'rgba(255, 255, 255, 0.95)', dark: 'rgba(31, 41, 55, 0.95)' },
+        backdropFilter: 'blur(8px)',
+        p: { xs: 3, md: 4 },
+        borderRadius: 2,
+        border: 1,
+        borderColor: { light: '#e5e7eb', dark: '#374151' },
+        mb: 4,
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+      }}>
+        <Box sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+          alignItems: { xs: 'flex-start', md: 'center' },
+          justifyContent: 'space-between',
+          gap: 4,
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{
+              width: 3,
+              height: 32,
+              background: 'linear-gradient(to bottom, #2563eb, #4f46e5)',
+              borderRadius: '999px',
+            }} />
+            <Typography variant="h3" sx={{
+              fontWeight: 'bold',
+              fontSize: { xs: '1.5rem', md: '2rem' },
+            }}>
+              Browse Manga
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+            <ToggleButtonGroup
+              value={tab}
+              exclusive
+              onChange={(e, newTab) => newTab && setTab(newTab)}
+              size="small"
+              sx={{
+                bgcolor: { light: '#f3f4f6', dark: '#374151' },
+                borderRadius: '12px',
+                '& .MuiToggleButton-root': {
+                  borderRadius: '8px',
+                  fontWeight: 'bold',
+                  fontSize: '0.875rem',
+                  px: 3,
+                  py: 1,
+                  '&.Mui-selected': {
+                    bgcolor: 'white',
+                    color: '#4f46e5',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                    border: '1px solid rgba(79, 70, 229, 0.2)',
+                    '&:hover': {
+                      bgcolor: '#f9fafb',
+                    },
+                  },
+                  '&.Mui-selected.Mui-disabled': {
+                    bgcolor: '#e5e7eb',
+                    color: '#6b7280',
+                  },
+                },
+              }}
             >
-              Latest
-            </button>
-            <button
-              onClick={() => setTab("popular")}
-              className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${tab === "popular"
-                ? "bg-white dark:bg-gray-800 text-indigo-600 shadow-md border border-indigo-200 dark:border-indigo-600"
-                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                }`}
+              <ToggleButton value="latest">Latest</ToggleButton>
+              <ToggleButton value="popular">Popular</ToggleButton>
+              <ToggleButton value="random">Random</ToggleButton>
+            </ToggleButtonGroup>
+
+            <Box sx={{ flex: { xs: 1, md: 'none' } }}>
+              <TextField
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search..."
+                size="small"
+                fullWidth
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '12px',
+                    '& fieldset': {
+                      borderColor: { light: '#d1d5db', dark: '#4b5563' },
+                    },
+                    '&:hover fieldset': {
+                      borderColor: { light: '#9ca3af', dark: '#6b7280' },
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: '#4f46e5',
+                    },
+                  },
+                }}
+                onKeyPress={(e) => e.key === 'Enter' && refetch()}
+              />
+            </Box>
+
+            <IconButton
+              onClick={() => setShowFilters(!showFilters)}
+              title="Filters"
+              sx={{
+                border: 1,
+                borderRadius: '12px',
+                borderColor: showFilters || activeFilters.length > 0
+                  ? 'rgba(79, 70, 229, 0.3)'
+                  : { light: '#d1d5db', dark: '#4b5563' },
+                bgcolor: showFilters || activeFilters.length > 0
+                  ? 'rgba(79, 70, 229, 0.05)'
+                  : 'transparent',
+                color: showFilters || activeFilters.length > 0
+                  ? '#4f46e5'
+                  : { light: '#6b7280', dark: '#9ca3af' },
+                '&:hover': {
+                  bgcolor: showFilters || activeFilters.length > 0
+                    ? 'rgba(79, 70, 229, 0.1)'
+                    : 'rgba(0, 0, 0, 0.05)',
+                },
+              }}
             >
-              Popular
-            </button>
-            <button
-              onClick={() => setTab("random")}
-              className={`px-4 py-2 rounded-md text-sm font-semibold transition-all ${tab === "random"
-                ? "bg-white dark:bg-gray-800 text-indigo-600 shadow-md border border-indigo-200 dark:border-indigo-600"
-                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                }`}
-            >
-              Random
-            </button>
-          </div>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              refetch();
-            }}
-            className="flex-1 md:flex-none"
-          >
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search..."
-              className="w-full md:w-64 px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all shadow-sm"
-            />
-          </form>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`p-2 rounded-lg border transition-all ${showFilters || activeFilters.length > 0
-              ? "bg-indigo-50 border-indigo-200 text-indigo-600 dark:bg-indigo-900/20 dark:border-indigo-800"
-              : "bg-white border-gray-200 text-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-400"
-              }`}
-            title="Filters"
-          >
-            <SlidersHorizontal className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
+              <SlidersHorizontal size={20} />
+            </IconButton>
+          </Box>
+        </Box>
+      </Paper>
 
       {showFilters && filtersData?.filters && (
-        <div className="mb-8 p-6 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-200 dark:border-gray-700 animate-in slide-in-from-top duration-300">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="font-bold text-lg flex items-center gap-2">
-              <Filter className="w-5 h-5 text-indigo-500" />
-              Search Filters
+        <Paper sx={{
+          mb: 4,
+          p: 4,
+          bgcolor: { light: '#f9fafb', dark: 'rgba(31, 41, 55, 0.5)' },
+          borderRadius: 2,
+          border: 1,
+          borderColor: { light: '#e5e7eb', dark: '#374151' },
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box sx={{ color: '#6366f1' }}>
+                <Filter size={20} />
+              </Box>
+              <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+                Search Filters
+              </Typography>
               {activeFilters.length > 0 && (
-                <span className="ml-2 px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 text-xs rounded-full">
-                  {activeFilters.length} active
-                </span>
+                <Chip
+                  label={`${activeFilters.length} active`}
+                  size="small"
+                  sx={{
+                    ml: 2,
+                    bgcolor: { light: '#eef2ff', dark: 'rgba(79, 70, 229, 0.2)' },
+                    color: '#4f46e5',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                  }}
+                />
               )}
-            </h3>
-            <button
+            </Box>
+            <Button
               onClick={clearFilters}
-              className="text-sm font-medium text-gray-500 hover:text-indigo-600 dark:text-gray-400 dark:hover:text-indigo-400 transition-colors"
+              size="small"
+              sx={{
+                color: { light: '#6b7280', dark: '#9ca3af' },
+                '&:hover': {
+                  color: '#4f46e5',
+                },
+                textTransform: 'none',
+              }}
             >
               Clear all
-            </button>
-          </div>
+            </Button>
+          </Box>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <Grid container spacing={3}>
             {filtersData.filters.map((filter: any) => (
-              <div key={filter.id} className="space-y-2">
-                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  {filter.name}
-                </label>
-                {filter.type === "select" || filter.type === "sort" ? (
-                  <select
-                    value={activeFilters.find(f => f.id === filter.id)?.value || ""}
-                    onChange={(e) => handleFilterChange(filter.id, e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                  >
-                    <option value="">Any</option>
-                    {filter.options?.map((opt: any) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                ) : filter.type === "multiselect" ? (
-                  <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800">
-                    {filter.options?.map((opt: any) => {
-                      const isActive = (activeFilters.find(f => f.id === filter.id)?.value || []).includes(opt.value);
-                      return (
-                        <button
-                          key={opt.value}
-                          onClick={() => {
-                            const current = activeFilters.find(f => f.id === filter.id)?.value || [];
-                            const next = isActive
-                              ? current.filter((v: any) => v !== opt.value)
-                              : [...current, opt.value];
-                            handleFilterChange(filter.id, next);
-                          }}
-                          className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${isActive
-                            ? "bg-indigo-600 text-white shadow-sm"
-                            : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                            }`}
-                        >
-                          {opt.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <input
-                    type="text"
-                    value={activeFilters.find(f => f.id === filter.id)?.value || ""}
-                    onChange={(e) => handleFilterChange(filter.id, e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500/50 outline-none transition-all"
-                    placeholder={`Enter ${filter.name.toLowerCase()}...`}
-                  />
-                )}
-              </div>
+              <Grid size={{ xs: 12, md: 6, lg: 4 }} key={filter.id}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                    {filter.name}
+                  </Typography>
+                  {filter.type === "select" || filter.type === "sort" ? (
+                    <TextField
+                      select
+                      value={activeFilters.find(f => f.id === filter.id)?.value || ""}
+                      onChange={(e) => handleFilterChange(filter.id, e.target.value)}
+                      size="small"
+                      fullWidth
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '10px',
+                          '& fieldset': {
+                            borderColor: { light: '#d1d5db', dark: '#4b5563' },
+                          },
+                          '&:hover fieldset': {
+                            borderColor: { light: '#9ca3af', dark: '#6b7280' },
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#4f46e5',
+                          },
+                        },
+                      }}
+                    >
+                      <option value="">Any</option>
+                      {filter.options?.map((opt: any) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </TextField>
+                  ) : filter.type === "multiselect" ? (
+                    <Box sx={{
+                      maxHeight: 160,
+                      overflowY: 'auto',
+                      p: 1,
+                      border: 1,
+                      borderColor: { light: '#d1d5db', dark: '#4b5563' },
+                      borderRadius: '10px',
+                      bgcolor: { light: 'white', dark: '#1f2937' },
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: 1,
+                    }}>
+                      {filter.options?.map((opt: any) => {
+                        const isActive = (activeFilters.find(f => f.id === filter.id)?.value || []).includes(opt.value);
+                        return (
+                          <Chip
+                            key={opt.value}
+                            label={opt.label}
+                            size="small"
+                            onClick={() => {
+                              const current = activeFilters.find(f => f.id === filter.id)?.value || [];
+                              const next = isActive
+                                ? current.filter((v: any) => v !== opt.value)
+                                : [...current, opt.value];
+                              handleFilterChange(filter.id, next);
+                            }}
+                            sx={{
+                              bgcolor: isActive
+                                ? '#4f46e5'
+                                : { light: '#f3f4f6', dark: '#374151' },
+                              color: isActive
+                                ? 'white'
+                                : { light: '#374151', dark: '#d1d5db' },
+                              fontWeight: 'bold',
+                              fontSize: '0.75rem',
+                              '&:hover': {
+                                bgcolor: isActive
+                                  ? '#4338ca'
+                                  : { light: '#e5e7eb', dark: '#4b5563' },
+                              },
+                            }}
+                          />
+                        );
+                      })}
+                    </Box>
+                  ) : (
+                    <TextField
+                      type="text"
+                      value={activeFilters.find(f => f.id === filter.id)?.value || ""}
+                      onChange={(e) => handleFilterChange(filter.id, e.target.value)}
+                      size="small"
+                      fullWidth
+                      placeholder={`Enter ${filter.name.toLowerCase()}...`}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          borderRadius: '10px',
+                          '& fieldset': {
+                            borderColor: { light: '#d1d5db', dark: '#4b5563' },
+                          },
+                          '&:hover fieldset': {
+                            borderColor: { light: '#9ca3af', dark: '#6b7280' },
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#4f46e5',
+                          },
+                        },
+                      }}
+                    />
+                  )}
+                </Box>
+              </Grid>
             ))}
-          </div>
-        </div>
+          </Grid>
+        </Paper>
       )}
 
       {isLoading ? (
-        <div className="flex justify-center py-20">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-        </div>
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
+          <CircularProgress color="primary" />
+        </Box>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-6">
+        <Grid container spacing={3}>
           {(data?.results || []).map((it: any, i: number) => (
-            <Card key={i} item={it} onAdd={(item) => addMutation.mutate(item)} />
+            <Grid size={{ xs: 6, sm: 6, md: 4, lg: 3, xl: 2 }} key={i}>
+              <MangaCardComponent item={it} onAdd={(item) => addMutation.mutate(item)} />
+            </Grid>
           ))}
-        </div>
+        </Grid>
       )}
-    </div>
+    </Container>
   );
 }

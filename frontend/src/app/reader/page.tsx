@@ -1,92 +1,140 @@
-import React, { useEffect, useMemo, useState } from "react";
+// ReaderPage.tsx
+// UI alignment pass: consistent max-width, centered chrome, safer click area,
+// better spacing on mobile, and aligned bottom nav + page indicator.
+
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { api } from "../../lib/api";
 import { explainChapter } from "../../services/geminiService";
 import { ChevronLeft, ArrowLeft, ArrowRight, Sparkles, Settings2 } from "lucide-react";
+import {
+  Box,
+  Typography,
+  Paper,
+  Button,
+  ToggleButtonGroup,
+  ToggleButton,
+  IconButton,
+} from "@mui/material";
 
 // Helper component to lazy resolve images
 function PageImage({
   url,
-  chapterUrl,
   index,
   mode,
   source,
 }: {
   url: string;
-  chapterUrl: string;
   index: number;
   mode: "scroll" | "single";
   source: string | null;
-  key?: any;
 }) {
   const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
 
-  // Check if URL is already an image (optimization)
   const isImage = useMemo(() => {
     return /\.(jpg|jpeg|png|gif|webp)($|\?)/i.test(url) || url.includes("picsum");
   }, [url]);
 
-  // Build proxy URL for images to bypass CORS/hotlink protection
   const proxyUrl = useMemo(() => {
     if (!isImage) return null;
-    const apiBaseUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api/v1';
-    return `${apiBaseUrl}/proxy?url=${encodeURIComponent(url)}&source=${encodeURIComponent(source || '')}`;
+    const apiBaseUrl =
+      (import.meta as any).env?.VITE_API_URL || "http://localhost:8000/api/v1";
+    return `${apiBaseUrl}/proxy?url=${encodeURIComponent(url)}&source=${encodeURIComponent(
+      source || ""
+    )}`;
   }, [url, isImage, source]);
 
   useEffect(() => {
+    let cancelled = false;
+
     if (isImage && proxyUrl) {
-      // Use proxy for all external images to bypass CORS/hotlink protection
       setResolvedUrl(proxyUrl);
       return;
     }
 
-    setLoading(true);
     api
-      .get("/manga/resolve", {
-        params: { url, source },
-      })
+      .get("/manga/resolve", { params: { url, source } })
       .then((res) => {
-        setResolvedUrl(res.data.url);
+        if (!cancelled) setResolvedUrl(res.data.url);
       })
       .catch((err) => {
         console.error("Failed to resolve image", err);
-        setError(true);
-      })
-      .finally(() => {
-        setLoading(false);
+        if (!cancelled) setError(true);
       });
-  }, [url, isImage, proxyUrl]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [url, isImage, proxyUrl, source]);
 
   if (error) {
     return (
-      <div className="flex items-center justify-center bg-gray-900 text-red-500 h-96 w-full mb-2">
+      <Box
+        sx={{
+          display: "grid",
+          placeItems: "center",
+          bgcolor: "#111827",
+          color: "#ef4444",
+          height: "24rem",
+          width: "100%",
+          mb: 1,
+          borderRadius: 1,
+        }}
+      >
         Failed to load page {index + 1}
-      </div>
+      </Box>
     );
   }
 
   if (!resolvedUrl) {
     return (
-      <div className="flex items-center justify-center bg-gray-900 text-gray-500 h-[60vh] w-full mb-2 animate-pulse rounded-lg">
-        <span className="text-xs uppercase tracking-widest">Loading...</span>
-      </div>
+      <Box
+        sx={{
+          display: "grid",
+          placeItems: "center",
+          bgcolor: "#111827",
+          color: "#9ca3af",
+          height: { xs: "50vh", md: "60vh" },
+          width: "100%",
+          mb: 1,
+          borderRadius: 1,
+        }}
+      >
+        <Typography
+          variant="caption"
+          sx={{ textTransform: "uppercase", letterSpacing: "0.2em" }}
+        >
+          Loading...
+        </Typography>
+      </Box>
     );
   }
 
   return (
-    <img
-      src={resolvedUrl}
-      alt={`p${index + 1}`}
-      className={
-        mode === "scroll"
-          ? "w-full mb-0 shadow-lg"
-          : "max-h-[92vh] max-w-full object-contain"
-      }
-      loading="lazy"
-    />
+    <Box
+      sx={{
+        display: "flex",
+        justifyContent: "center",
+        // keeps single-page centered and prevents “leaning” on wide screens
+        width: "100%",
+      }}
+    >
+      <img
+        src={resolvedUrl}
+        alt={`p${index + 1}`}
+        style={{
+          width: mode === "scroll" ? "100%" : "auto",
+          height: mode === "scroll" ? "auto" : "min(92vh, 1200px)",
+          objectFit: mode === "scroll" ? "contain" : "contain", // avoid cropping in scroll
+          display: "block",
+          maxWidth: mode === "scroll" ? "100%" : "100%",
+          marginBottom: mode === "scroll" ? "0.75rem" : "0.5rem",
+        }}
+        loading="lazy"
+      />
+    </Box>
   );
 }
 
@@ -101,7 +149,9 @@ export default function ReaderPage() {
   const [showControls, setShowControls] = useState(true);
   const [aiTeaser, setAiTeaser] = useState<string | null>(null);
 
-  const { data } = useQuery({
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  const { data, isError } = useQuery({
     queryKey: ["pages", chapterUrl, source],
     enabled: !!chapterUrl,
     queryFn: async () => {
@@ -110,6 +160,7 @@ export default function ReaderPage() {
       });
       return resp.data;
     },
+    staleTime: 1000 * 60 * 10,
   });
 
   const pages: string[] = useMemo(() => data?.pages || [], [data]);
@@ -128,146 +179,470 @@ export default function ReaderPage() {
     }
   }, [chapter, manga]);
 
-  if (!chapterUrl) return <p className="p-6">Provide ?chapter_url=…</p>;
-  if (!data) return <div className="flex items-center justify-center h-screen bg-black text-zinc-500">Loading Reader...</div>;
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const nextKey = dir === "rtl" ? "ArrowLeft" : "ArrowRight";
+      const prevKey = dir === "rtl" ? "ArrowRight" : "ArrowLeft";
+
+      if (mode === "single") {
+        if (e.key === nextKey) setIdx((i) => Math.min(pages.length - 1, i + 1));
+        if (e.key === prevKey) setIdx((i) => Math.max(0, i - 1));
+      } else {
+        if (e.key === "ArrowDown" || e.key === nextKey) {
+          scrollRef.current?.scrollBy({ top: window.innerHeight * 0.9, behavior: "smooth" });
+        }
+        if (e.key === "ArrowUp" || e.key === prevKey) {
+          scrollRef.current?.scrollBy({ top: -window.innerHeight * 0.9, behavior: "smooth" });
+        }
+      }
+
+      if (e.key === "f") setShowControls((s) => !s);
+      if (e.key === "Escape") setShowControls(true);
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [dir, mode, pages.length]);
+
+  if (!chapterUrl)
+    return (
+      <Typography variant="body1" sx={{ p: 3 }}>
+        Provide ?chapter_url=…
+      </Typography>
+    );
+
+  if (isError)
+    return (
+      <Box sx={{ display: "grid", placeItems: "center", height: "100vh", bgcolor: "black" }}>
+        <Typography sx={{ color: "#ef4444" }}>Failed to load chapter.</Typography>
+      </Box>
+    );
+
+  if (!data)
+    return (
+      <Box
+        sx={{
+          display: "grid",
+          placeItems: "center",
+          height: "100vh",
+          bgcolor: "black",
+          color: "#9ca3af",
+        }}
+      >
+        Loading Reader...
+      </Box>
+    );
+
+  // Direction-aware navigation helpers
+  const goPrev = () => setIdx((i) => Math.max(0, i - 1));
+  const goNext = () => setIdx((i) => Math.min(pages.length - 1, i + 1));
+
+  const leftAction = dir === "rtl" ? goNext : goPrev;
+  const rightAction = dir === "rtl" ? goPrev : goNext;
+
+  const leftDisabled = dir === "rtl" ? idx >= pages.length - 1 : idx === 0;
+  const rightDisabled = dir === "rtl" ? idx === 0 : idx >= pages.length - 1;
+
+  const onBackgroundClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button,a,[role='button'],input,textarea,select")) return;
+    setShowControls((s) => !s);
+  };
 
   return (
-    <div className="fixed inset-0 bg-black text-white z-50 overflow-hidden">
-
-      {/* Top Controls */}
-      <header
-        className={`absolute top-0 left-0 right-0 p-4 bg-black/90 backdrop-blur-sm border-b border-white/10 flex justify-between items-center z-40 transition-transform duration-300 ${showControls ? 'translate-y-0' : '-translate-y-full'}`}
+    <Box
+      sx={{
+        position: "fixed",
+        inset: 0,
+        bgcolor: "black",
+        color: "white",
+        zIndex: 100,
+        overflow: "hidden",
+      }}
+    >
+      {/* Top Controls (centered + aligned with content width) */}
+      <Paper
+        elevation={0}
+        sx={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bgcolor: "rgba(0,0,0,0.85)",
+          backdropFilter: "blur(10px)",
+          borderBottom: "1px solid rgba(255,255,255,0.08)",
+          zIndex: 80,
+          transform: showControls ? "translateY(0)" : "translateY(-110%)",
+          transition: "transform 0.25s ease",
+        }}
       >
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="p-2 hover:bg-white/10 rounded-full transition-colors text-gray-300 hover:text-white">
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-          <div className="hidden md:block">
-            <h1 className="text-sm font-bold text-gray-200">{manga?.title}</h1>
-            <p className="text-xs text-gray-500">Chapter {chapter?.number}</p>
-          </div>
-        </div>
-
-        <div className="flex gap-2 items-center">
-          <div className="bg-zinc-900 rounded-lg p-1 flex items-center border border-zinc-800">
-            <button
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${mode === 'single' ? 'bg-indigo-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
-              onClick={() => setMode("single")}
+        <Box
+          sx={{
+            maxWidth: "1100px",
+            mx: "auto",
+            px: { xs: 1, sm: 2 },
+            py: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 1.5,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, minWidth: 0 }}>
+            <IconButton
+              aria-label="Back"
+              onClick={() => navigate(-1)}
+              sx={{
+                color: "#9ca3af",
+                "&:hover": { bgcolor: "rgba(255,255,255,0.08)", color: "white" },
+                borderRadius: "12px",
+              }}
             >
-              Single
-            </button>
-            <button
-              className={`px-3 py-1.5 rounded text-xs font-medium transition-all ${mode === 'scroll' ? 'bg-indigo-600 text-white shadow' : 'text-gray-400 hover:text-white'}`}
-              onClick={() => setMode("scroll")}
+              <ChevronLeft size={22} />
+            </IconButton>
+
+            <Box sx={{ minWidth: 0, display: { xs: "none", sm: "block" } }}>
+              <Typography
+                variant="caption"
+                sx={{
+                  fontWeight: 800,
+                  color: "#e5e7eb",
+                  display: "block",
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  maxWidth: { sm: 260, md: 420 },
+                }}
+              >
+                {manga?.title}
+              </Typography>
+              <Typography variant="caption" sx={{ color: "#9ca3af", display: "block" }}>
+                Chapter {chapter?.number} • Page {idx + 1} of {pages.length}
+              </Typography>
+            </Box>
+          </Box>
+
+          <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+            <Paper
+              sx={{
+                bgcolor: "#111827",
+                borderRadius: 2,
+                p: 0.25,
+                display: "flex",
+                alignItems: "center",
+                border: "1px solid #1f2937",
+              }}
             >
-              Scroll
-            </button>
-          </div>
+              <ToggleButtonGroup
+                value={mode}
+                exclusive
+                onChange={(e, newMode) => newMode && setMode(newMode)}
+                size="small"
+                sx={{
+                  "& .MuiToggleButton-root": {
+                    borderRadius: "10px",
+                    fontWeight: 800,
+                    fontSize: "0.75rem",
+                    px: 1.5,
+                    py: 0.75,
+                    textTransform: "none",
+                    "&.Mui-selected": {
+                      bgcolor: "#4f46e5",
+                      color: "white",
+                      border: "1px solid rgba(79,70,229,0.25)",
+                      "&:hover": { bgcolor: "#4338ca" },
+                    },
+                  },
+                }}
+              >
+                <ToggleButton value="single">Single</ToggleButton>
+                <ToggleButton value="scroll">Scroll</ToggleButton>
+              </ToggleButtonGroup>
+            </Paper>
 
-          <button
-            className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 text-gray-400 hover:text-white transition-colors"
-            onClick={() => setDir(dir === "ltr" ? "rtl" : "ltr")}
-            title="Toggle Reading Direction"
-          >
-            <Settings2 className="w-4 h-4" />
-          </button>
-        </div>
-      </header>
-
-      {/* Tap zone to toggle controls */}
-      <div className="absolute inset-0 z-10" onClick={() => setShowControls(!showControls)} />
+            <IconButton
+              aria-label="Toggle reading direction"
+              onClick={() => setDir((d) => (d === "ltr" ? "rtl" : "ltr"))}
+              sx={{
+                bgcolor: "#111827",
+                border: "1px solid #1f2937",
+                borderRadius: "12px",
+                color: "#9ca3af",
+                "&:hover": { bgcolor: "#1f2937", color: "white" },
+              }}
+            >
+              <Settings2 size={16} />
+            </IconButton>
+          </Box>
+        </Box>
+      </Paper>
 
       {/* Main Content */}
       {mode === "scroll" ? (
-        <div className="pt-0 pb-0 overflow-y-auto h-full relative z-20 bg-zinc-950">
-          <div className="max-w-screen-md mx-auto pt-20 pb-20">
-
-            {/* AI Teaser */}
+        <Box
+          ref={scrollRef}
+          onClick={onBackgroundClick}
+          sx={{
+            height: "100%",
+            overflowY: "auto",
+            bgcolor: "#000",
+          }}
+        >
+          <Box
+            sx={{
+              // aligned with top bar maxWidth
+              maxWidth: "900px",
+              mx: "auto",
+              px: { xs: 1, sm: 2 },
+              pt: { xs: 8, sm: 9 },
+              pb: { xs: 10, sm: 12 },
+            }}
+          >
+            {/* AI Teaser (centered + consistent padding) */}
             {aiTeaser && (
-              <div className="mx-4 mb-8 p-6 bg-zinc-900/50 border border-indigo-900/30 rounded-2xl text-center relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-indigo-600 to-transparent opacity-50"></div>
-                <span className="inline-flex items-center gap-1 text-indigo-400 text-xs font-bold uppercase tracking-wider mb-2">
-                  <Sparkles className="w-3 h-3" /> AI Preview
-                </span>
-                <p className="text-gray-300 italic text-sm md:text-base leading-relaxed max-w-lg mx-auto">
-                  "{aiTeaser}"
-                </p>
-              </div>
+              <Paper
+                sx={{
+                  mb: 2,
+                  p: { xs: 2, sm: 3 },
+                  bgcolor: "rgba(17, 24, 39, 0.6)",
+                  border: "1px solid rgba(79,70,229,0.25)",
+                  borderRadius: 2,
+                  textAlign: "center",
+                  position: "relative",
+                  overflow: "hidden",
+                }}
+              >
+                <Box
+                  sx={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: 2,
+                    background: "linear-gradient(to right, transparent, #6366f1, transparent)",
+                    opacity: 0.5,
+                  }}
+                />
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.75, mb: 1 }}>
+                  <Sparkles size={12} style={{ color: "#6366f1" }} />
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "#a5b4fc",
+                      fontWeight: 900,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.12em",
+                    }}
+                  >
+                    AI Preview
+                  </Typography>
+                </Box>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "#e5e7eb",
+                    fontStyle: "italic",
+                    lineHeight: 1.8,
+                    maxWidth: "42rem",
+                    mx: "auto",
+                    fontSize: { xs: "0.8rem", md: "0.9rem" },
+                  }}
+                >
+                  “{aiTeaser}”
+                </Typography>
+              </Paper>
             )}
 
-            <div className={dir === "rtl" ? "direction-rtl" : ""}>
+            <Box sx={{ direction: dir }}>
               {pages.map((p, i) => (
-                <PageImage
-                  key={`${chapterUrl}-${i}`}
-                  url={p}
-                  chapterUrl={chapterUrl}
-                  index={i}
-                  mode="scroll"
-                  source={source}
-                />
+                <PageImage key={`${chapterUrl}-${i}`} url={p} index={i} mode="scroll" source={source} />
               ))}
-            </div>
+            </Box>
 
-            {/* Bottom Nav */}
-            <div className="mt-10 px-4 flex gap-4">
-              <button
+            {/* Bottom Nav (aligned + equal widths) */}
+            <Box
+              sx={{
+                mt: 2.5,
+                display: "grid",
+                gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" },
+                gap: 1,
+              }}
+            >
+              <Button
                 disabled={!data?.prev_slug}
-                onClick={() => navigate(`/reader?chapter_url=${encodeURIComponent(data.prev_slug)}&source=${encodeURIComponent(source || '')}`)}
-                className="flex-1 py-4 bg-zinc-900 text-gray-300 rounded-xl hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed font-bold transition-colors"
+                onClick={() =>
+                  navigate(
+                    `/reader?chapter_url=${encodeURIComponent(data.prev_slug)}&source=${encodeURIComponent(
+                      source || ""
+                    )}`
+                  )
+                }
+                variant="outlined"
+                sx={{
+                  py: 1.5,
+                  bgcolor: "#111827",
+                  borderColor: "#1f2937",
+                  color: "#e5e7eb",
+                  fontWeight: 800,
+                  borderRadius: "12px",
+                  "&:hover": { bgcolor: "#1f2937", borderColor: "#374151", color: "white" },
+                  "&:disabled": { opacity: 0.35 },
+                }}
               >
                 Previous Chapter
-              </button>
-              <button
+              </Button>
+
+              <Button
                 disabled={!data?.next_slug}
-                onClick={() => navigate(`/reader?chapter_url=${encodeURIComponent(data.next_slug)}&source=${encodeURIComponent(source || '')}`)}
-                className="flex-1 py-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed font-bold transition-colors"
+                onClick={() =>
+                  navigate(
+                    `/reader?chapter_url=${encodeURIComponent(data.next_slug)}&source=${encodeURIComponent(
+                      source || ""
+                    )}`
+                  )
+                }
+                variant="contained"
+                sx={{
+                  py: 1.5,
+                  bgcolor: "#4f46e5",
+                  color: "white",
+                  fontWeight: 900,
+                  borderRadius: "12px",
+                  "&:hover": { bgcolor: "#4338ca", boxShadow: "0 6px 18px rgba(79,70,229,0.25)" },
+                  "&:disabled": { opacity: 0.35 },
+                }}
               >
                 Next Chapter
-              </button>
-            </div>
-          </div>
-        </div>
+              </Button>
+            </Box>
+          </Box>
+        </Box>
       ) : (
-        <div className="h-full flex items-center justify-between relative z-20 bg-zinc-950">
-          <button
-            onClick={(e) => { e.stopPropagation(); setIdx(Math.max(0, idx - 1)); }}
-            className="h-full w-32 opacity-0 hover:opacity-100 flex items-center justify-center z-30 hover:bg-gradient-to-r from-black/80 to-transparent absolute left-0 transition-all group"
+        <Box
+          onClick={onBackgroundClick}
+          sx={{
+            height: "100%",
+            display: "grid",
+            placeItems: "center",
+            position: "relative",
+            bgcolor: "#000",
+            width: "100%",
+            overflow: "hidden",
+          }}
+        >
+          {/* Left Navigation Zone (direction-aware) */}
+          <Box
+            sx={{
+              position: "absolute",
+              left: 0,
+              top: { xs: 56, sm: 64 },
+              bottom: 0,
+              width: { xs: "18%", md: "20%" },
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-start",
+              pl: { xs: 1, md: 2 },
+              zIndex: 40,
+              cursor: leftDisabled ? "default" : "pointer",
+              background: { xs: "linear-gradient(to right, rgba(0,0,0,0.65), transparent)", md: "none" },
+              "&:hover .nav-arrow": leftDisabled ? {} : { transform: "translateX(-8px)", opacity: 1 },
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!leftDisabled) leftAction();
+            }}
           >
-            <ArrowLeft className="w-10 h-10 text-white drop-shadow-lg transform group-hover:-translate-x-2 transition-transform" />
-          </button>
+            <Box
+              className="nav-arrow"
+              sx={{
+                color: "white",
+                filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))",
+                opacity: leftDisabled ? 0.35 : 0.95,
+                transition: "all 0.2s ease",
+                transform: dir === "rtl" ? "scaleX(-1)" : "none",
+              }}
+            >
+              <ArrowLeft size={40} />
+            </Box>
+          </Box>
 
-          <div className="flex-1 h-full flex items-center justify-center relative p-0" onClick={() => setShowControls(!showControls)}>
-            <PageImage
-              key={`${chapterUrl}-${idx}`}
-              url={pages[idx]}
-              chapterUrl={chapterUrl}
-              index={idx}
-              mode="single"
-              source={source}
-            />
-          </div>
-
-          <button
-            onClick={(e) => { e.stopPropagation(); setIdx(Math.min(pages.length - 1, idx + 1)); }}
-            className="h-full w-32 opacity-0 hover:opacity-100 flex items-center justify-center z-30 hover:bg-gradient-to-l from-black/80 to-transparent absolute right-0 transition-all group"
+          {/* Center Content (hard-centered + consistent maxWidth) */}
+          <Box
+            sx={{
+              width: "100%",
+              maxWidth: { xs: "100%", md: "1000px" },
+              px: { xs: 1, sm: 2 },
+              pt: { xs: 7.5, sm: 8.5 }, // aligns content below top bar
+              pb: 6,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              position: "relative",
+            }}
           >
-            <ArrowRight className="w-10 h-10 text-white drop-shadow-lg transform group-hover:translate-x-2 transition-transform" />
-          </button>
+            <PageImage url={pages[idx]} index={idx} mode="single" source={source} />
 
-          {/* Page Indicator */}
-          <div className={`absolute bottom-8 left-1/2 -translate-x-1/2 px-4 py-2 bg-zinc-900/90 backdrop-blur border border-zinc-800 rounded-full text-sm font-medium text-white shadow-xl transition-all duration-300 ${showControls ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}>
-            Page {idx + 1} <span className="text-zinc-500">/</span> {pages.length}
-          </div>
-        </div>
+            {/* Page Indicator (centered, not drifting) */}
+            <Paper
+              sx={{
+                position: "absolute",
+                bottom: { xs: 10, sm: 12 },
+                left: "50%",
+                transform: "translateX(-50%)",
+                px: 2,
+                py: 0.6,
+                bgcolor: "rgba(17,24,39,0.85)",
+                backdropFilter: "blur(10px)",
+                border: "1px solid rgba(255,255,255,0.10)",
+                borderRadius: "999px",
+                boxShadow: "0 10px 30px rgba(0,0,0,0.35)",
+                zIndex: 40,
+              }}
+            >
+              <Typography variant="caption" sx={{ fontWeight: 900 }}>
+                Page {idx + 1} <span style={{ color: "#6b7280" }}>/</span> {pages.length}
+              </Typography>
+            </Paper>
+          </Box>
+
+          {/* Right Navigation Zone (direction-aware) */}
+          <Box
+            sx={{
+              position: "absolute",
+              right: 0,
+              top: { xs: 56, sm: 64 },
+              bottom: 0,
+              width: { xs: "18%", md: "20%" },
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              pr: { xs: 1, md: 2 },
+              zIndex: 40,
+              cursor: rightDisabled ? "default" : "pointer",
+              background: { xs: "linear-gradient(to left, rgba(0,0,0,0.65), transparent)", md: "none" },
+              "&:hover .nav-arrow": rightDisabled ? {} : { transform: "translateX(8px)", opacity: 1 },
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!rightDisabled) rightAction();
+            }}
+          >
+            <Box
+              className="nav-arrow"
+              sx={{
+                color: "white",
+                filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.5))",
+                opacity: rightDisabled ? 0.35 : 0.95,
+                transition: "all 0.2s ease",
+                transform: dir === "rtl" ? "scaleX(-1)" : "none",
+              }}
+            >
+              <ArrowRight size={40} />
+            </Box>
+          </Box>
+        </Box>
       )}
-
-      {/* Progress Bar */}
-      <div className="fixed bottom-0 left-0 right-0 h-1 bg-zinc-800 z-50">
-        <div
-          className="h-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)] transition-all duration-300"
-          style={{ width: `${((idx + 1) / pages.length) * 100}%` }}
-        />
-      </div>
-    </div>
+    </Box>
   );
 }

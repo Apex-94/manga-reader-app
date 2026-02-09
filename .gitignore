@@ -7,15 +7,33 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Node / frontend
 node_modules
 dist
 dist-ssr
 *.local
+frontend/tsconfig.tsbuildinfo
+
+# Environment
 .env*
+
+# Backend runtime data
 backend/library.json
+backend/data/
+backend/dist/
+backend/build/
+backend/__pycache__/
+
+# Plans and local docs drafts
 plans/
-docs/
-railway.json
+
+# Electron build outputs
+electron/release-electron/
+electron/release-electron-*/
+
+# Legacy/deferred Tauri artifacts
+desktop/src-tauri/target/
+desktop/src-tauri/resources/pyyomi-backend.exe
 
 # Editor directories and files
 .vscode/*
@@ -27,5 +45,5 @@ railway.json
 *.njsproj
 *.sln
 *.sw?
-__pycache__/
 *.pyc
+__pycache__/

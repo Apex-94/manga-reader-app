@@ -1,9 +1,14 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+import os
 
 from app.extensions.loader import registry, initialize_extensions
 
 router = APIRouter()
+
+# Use data directory based on environment or default
+DATA_DIR = os.environ.get("PYYOMI_DATA_DIR", "./data")
+LOG_FILE = os.path.join(DATA_DIR, "backend.log")
 
 
 class ActiveSourceUpdate(BaseModel):
@@ -61,3 +66,21 @@ async def reload_sources():
         "sources": registry.list_sources(),
         "load_errors": registry.list_errors(),
     }
+
+
+@router.get("/logs")
+async def get_logs():
+    """
+    Get backend logs from the log file.
+
+    Returns the contents of the backend log file for debugging.
+    """
+    try:
+        if os.path.exists(LOG_FILE):
+            with open(LOG_FILE, 'r') as f:
+                content = f.read()
+            return {"logs": content, "exists": True}
+        else:
+            return {"logs": "", "exists": False, "message": "Log file not found"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
