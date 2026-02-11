@@ -12,6 +12,7 @@ import {
   ListItemText,
   Toolbar,
   Typography,
+  Tooltip,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
@@ -31,8 +32,7 @@ import {
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useColorMode } from '../theme/ColorModeContext';
-
-const drawerWidth = 240;
+import { DRAWER_WIDTH, PAGE_PAD_X, PAGE_PAD_Y, RAIL_WIDTH, TOPBAR_HEIGHT } from '../constants/layout';
 
 const menuItems = [
   { text: 'Browse', icon: BookOpen, path: '/browse' },
@@ -49,19 +49,23 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const theme = useTheme();
   const { mode, toggleColorMode } = useColorMode();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
   const location = useLocation();
+  const navWidth = isMobile ? 0 : (isTablet ? RAIL_WIDTH : DRAWER_WIDTH);
 
   const handleDrawerToggle = () => {
     setMobileOpen((open) => !open);
   };
 
   const drawer = (
-    <Box sx={{ p: 2 }}>
+    <Box sx={{ p: isTablet ? 1 : 2 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
-        <Typography variant="h6" noWrap component="div">
-          PyYomi
-        </Typography>
+        {!isTablet && (
+          <Typography variant="h6" noWrap component="div">
+            PyYomi
+          </Typography>
+        )}
         {isMobile && (
           <IconButton onClick={handleDrawerToggle} aria-label="close navigation drawer">
             <CloseIcon size={20} />
@@ -73,6 +77,38 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
           const Icon = item.icon;
           const isSelected = location.pathname === item.path;
 
+          if (isTablet) {
+            return (
+              <Tooltip title={item.text} placement="right" key={item.text}>
+                <ListItem disablePadding sx={{ mb: 1 }}>
+                  <ListItemButton
+                    component={Link}
+                    to={item.path}
+                    selected={isSelected}
+                    onClick={() => setMobileOpen(false)}
+                    sx={{
+                      borderRadius: 2,
+                      minHeight: 44,
+                      justifyContent: 'center',
+                      px: 1,
+                      borderLeft: '3px solid transparent',
+                      '&.Mui-selected': {
+                        backgroundColor: theme.palette.action.selected,
+                        borderLeftColor: theme.palette.primary.main,
+                      },
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 0 }}>
+                      <Box sx={{ color: isSelected ? theme.palette.primary.main : theme.palette.text.secondary }}>
+                        <Icon size={20} />
+                      </Box>
+                    </ListItemIcon>
+                  </ListItemButton>
+                </ListItem>
+              </Tooltip>
+            );
+          }
+
           return (
             <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
               <ListItemButton
@@ -82,21 +118,27 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
                 onClick={() => setMobileOpen(false)}
                 sx={{
                   borderRadius: 2,
+                  minHeight: 44,
+                  justifyContent: 'flex-start',
+                  px: 1.5,
+                  borderLeft: '3px solid transparent',
                   '&.Mui-selected': {
-                    backgroundColor: theme.palette.primary.main,
+                    backgroundColor: theme.palette.action.selected,
+                    borderLeftColor: theme.palette.primary.main,
                     '&:hover': {
-                      backgroundColor: theme.palette.primary.dark,
+                      backgroundColor: theme.palette.action.selected,
                     },
                     '& .MuiListItemText-primary': {
-                      color: theme.palette.primary.contrastText,
+                      color: theme.palette.text.primary,
+                      fontWeight: 600,
                     },
                   },
                 }}
               >
-                <ListItemIcon sx={{ minWidth: 40 }}>
+                <ListItemIcon sx={{ minWidth: 40, justifyContent: 'center' }}>
                   <Box
                     sx={{
-                      color: isSelected ? theme.palette.primary.contrastText : theme.palette.text.secondary,
+                      color: isSelected ? theme.palette.primary.main : theme.palette.text.secondary,
                     }}
                   >
                     <Icon size={20} />
@@ -112,32 +154,37 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <CssBaseline />
       <AppBar
         position="fixed"
         color="default"
         sx={{
-          width: { md: `calc(100% - ${drawerWidth}px)` },
-          ml: { md: `${drawerWidth}px` },
+          width: { sm: `calc(100% - ${navWidth}px)` },
+          ml: { sm: `${navWidth}px` },
           color: mode === 'light' ? '#111827' : '#f3f4f6',
+          zIndex: (t) => t.zIndex.drawer + 1,
         }}
       >
-        <Toolbar sx={{ minHeight: '64px !important' }}>
+        <Toolbar sx={{ minHeight: `${TOPBAR_HEIGHT}px !important` }}>
           {isMobile && (
             <IconButton
               color="inherit"
               aria-label="open navigation drawer"
               edge="start"
               onClick={handleDrawerToggle}
-              sx={{ mr: 2, display: { md: 'none' }, color: 'inherit' }}
+              sx={{ mr: 2, display: { sm: 'none' }, color: 'inherit' }}
             >
               <MenuIcon size={20} />
             </IconButton>
           )}
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            PyYomi
-          </Typography>
+          <Box sx={{ flexGrow: 1 }}>
+            {isMobile && (
+              <Typography variant="h6" noWrap component="div">
+                PyYomi
+              </Typography>
+            )}
+          </Box>
           <IconButton
             color="inherit"
             onClick={toggleColorMode}
@@ -149,7 +196,7 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
         </Toolbar>
       </AppBar>
 
-      <Box component="nav" sx={{ width: { md: drawerWidth }, flexShrink: { md: 0 } }}>
+      <Box component="nav" sx={{ width: { sm: navWidth }, flexShrink: { sm: 0 } }}>
         {isMobile ? (
           <Drawer
             variant="temporary"
@@ -157,7 +204,7 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
             onClose={handleDrawerToggle}
             ModalProps={{ keepMounted: true }}
             sx={{
-              '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+              '& .MuiDrawer-paper': { boxSizing: 'border-box', width: DRAWER_WIDTH },
             }}
           >
             {drawer}
@@ -167,7 +214,7 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
             variant="persistent"
             open
             sx={{
-              '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
+              '& .MuiDrawer-paper': { boxSizing: 'border-box', width: navWidth, overflowX: 'hidden' },
             }}
           >
             {drawer}
@@ -179,9 +226,12 @@ export default function AppFrame({ children }: { children: React.ReactNode }) {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
-          width: { md: `calc(100% - ${drawerWidth}px)` },
-          mt: 8,
+          width: { sm: `calc(100% - ${navWidth}px)` },
+          height: '100vh',
+          overflowY: 'auto',
+          px: PAGE_PAD_X,
+          pb: PAGE_PAD_Y,
+          pt: `calc(${TOPBAR_HEIGHT}px + 16px)`,
         }}
       >
         {children}
