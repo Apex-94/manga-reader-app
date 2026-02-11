@@ -1,3 +1,4 @@
+from collections.abc import Generator
 from sqlmodel import create_engine, Session, SQLModel
 from pathlib import Path
 import os
@@ -12,9 +13,10 @@ DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 
 
-def get_session() -> Session:
-    """Dependency to get database session."""
-    return Session(engine)
+def get_session() -> Generator[Session, None, None]:
+    """Request-scoped DB session that is always closed by FastAPI."""
+    with Session(engine) as session:
+        yield session
 
 
 def init_db():

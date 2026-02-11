@@ -1,5 +1,5 @@
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawn, execFileSync } = require('child_process');
 
 const electronModule = require('electron');
 if (typeof electronModule === 'string') {
@@ -119,6 +119,37 @@ function findAvailablePort(start = 8000, end = 8100) {
   });
 }
 
+function terminateManagedProcess(childProcess, name) {
+  if (!childProcess || typeof childProcess.kill !== 'function') return;
+  const pid = childProcess.pid;
+
+  try {
+    if (isWindows && pid) {
+      // Windows kill must be done as a process tree, otherwise children can be orphaned.
+      execFileSync('taskkill', ['/PID', String(pid), '/T', '/F'], {
+        stdio: 'ignore',
+        windowsHide: true,
+      });
+      return;
+    }
+
+    childProcess.kill('SIGTERM');
+  } catch (error) {
+    try {
+      childProcess.kill('SIGKILL');
+    } catch (_) {
+      console.warn(`Failed to terminate ${name} process:`, String(error?.message || error));
+    }
+  }
+}
+
+function stopManagedProcesses() {
+  terminateManagedProcess(backendProcess, 'backend');
+  terminateManagedProcess(frontendProcess, 'frontend');
+  backendProcess = null;
+  frontendProcess = null;
+}
+
 function startBackend() {
   return new Promise(async (resolve) => {
     const selectedPort = await findAvailablePort(8000, 8100);
@@ -193,12 +224,14 @@ function startBackend() {
 
     backendProcess.on('exit', (code, signal) => {
       appendElectronLog(`[backend:exit] code=${String(code)} signal=${String(signal)}`);
+      backendProcess = null;
     });
 
     const ready = await waitForBackendReady(healthUrl, 20000);
     if (!ready) {
       console.error('Backend health check failed:', healthUrl);
       appendElectronLog(`Backend health check failed: ${healthUrl}`);
+      stopManagedProcesses();
       resolve(false);
       return;
     }
@@ -410,16 +443,19 @@ async function createWindow() {
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
-  if (backendProcess && typeof backendProcess.kill === 'function') {
-    backendProcess.kill();
-  }
-  if (frontendProcess && typeof frontendProcess.kill === 'function') {
-    frontendProcess.kill();
-  }
+  stopManagedProcesses();
 
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('before-quit', () => {
+  stopManagedProcesses();
+});
+
+app.on('will-quit', () => {
+  stopManagedProcesses();
 });
 
 app.on('activate', () => {
