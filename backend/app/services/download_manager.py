@@ -1,15 +1,18 @@
 import asyncio
+import contextlib
+import json
 import os
+import re
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 from urllib.parse import urlparse
 
 import httpx
 from sqlmodel import Session, select
 
 from app.db.database import engine
-from app.db.models import Chapter, Download, Manga
+from app.db.models import Chapter, Download, Manga, Setting
 from app.extensions.loader import registry
 
 
@@ -20,7 +23,7 @@ class DownloadManager:
         self.worker_task: Optional[asyncio.Task] = None
         self.active_downloads: dict[int, asyncio.Task] = {}
         self.paused_ids: set[int] = set()
-        self.data_dir = Path(os.getenv("DATA_DIR", "./data"))
+        self.data_dir = Path(os.getenv("DATA_DIR", "./data")).resolve()
         self.download_root = self.data_dir / "downloads"
         self.download_root.mkdir(parents=True, exist_ok=True)
 
@@ -80,6 +83,7 @@ class DownloadManager:
         while self.running:
             download_id = await self.queue.get()
             if download_id in self.paused_ids:
+                self.queue.task_done()
                 continue
             task = asyncio.create_task(self._run_download(download_id))
             self.active_downloads[download_id] = task
@@ -89,6 +93,84 @@ class DownloadManager:
                 self.active_downloads.pop(download_id, None)
                 self.queue.task_done()
 
+    def _get_setting_value(self, key: str, default: Any) -> Any:
+        with Session(engine) as db:
+            row = db.exec(select(Setting).where(Setting.key == key)).first()
+        if not row:
+            return default
+        try:
+            return json.loads(row.value)
+        except Exception:
+            return row.value
+
+    def _resolve_download_root(self) -> Path:
+        configured = self._get_setting_value("downloads.path", str(self.download_root))
+        try:
+            path = Path(str(configured)).expanduser()
+            if not path.is_absolute():
+                path = path.resolve()
+        except Exception:
+            path = self.download_root
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    def _resolve_scraper(self, source: str):
+        query_key = (source or "").strip().lower()
+        if not query_key:
+            raise RuntimeError("Missing source")
+
+        available = registry.list_sources()
+        source_ids = {item["id"] for item in available}
+
+        if query_key in source_ids:
+            return registry.get(query_key)
+
+        if ":" not in query_key:
+            en_key = f"{query_key}:en"
+            if en_key in source_ids:
+                return registry.get(en_key)
+
+            for key in source_ids:
+                if key.startswith(f"{query_key}:"):
+                    return registry.get(key)
+
+        raise RuntimeError(f"Source {source} not found")
+
+    def _slugify(self, value: Optional[str], fallback: str) -> str:
+        raw = (value or "").strip().lower()
+        if not raw:
+            return fallback
+        safe = re.sub(r"[\\/:*?\"<>|]", " ", raw)
+        safe = re.sub(r"\s+", " ", safe).strip()
+        safe = safe.replace(" ", "-")
+        safe = re.sub(r"[^a-z0-9._-]", "", safe)
+        safe = safe.strip("._-")
+        return safe or fallback
+
+    def _chapter_folder_name(self, chapter_number: int, chapter_title: Optional[str]) -> str:
+        padded = f"{max(chapter_number, 0):03d}"
+        chapter_slug = self._slugify(chapter_title, "untitled")
+        return f"Chapter_{padded}__{chapter_slug}"
+
+    def _resolve_chapter_dir(
+        self,
+        *,
+        root: Path,
+        manga_title: Optional[str],
+        chapter_number: int,
+        chapter_title: Optional[str],
+        download_id: int,
+    ) -> Path:
+        manga_dir = root / self._slugify(manga_title, "unknown-manga")
+        chapter_name = self._chapter_folder_name(chapter_number, chapter_title)
+        chapter_dir = manga_dir / chapter_name
+
+        if chapter_dir.exists() and any(chapter_dir.iterdir()):
+            chapter_dir = manga_dir / f"{chapter_name}__{download_id}"
+
+        chapter_dir.mkdir(parents=True, exist_ok=True)
+        return chapter_dir
+
     async def _run_download(self, download_id: int) -> None:
         with Session(engine) as db:
             download = db.get(Download, download_id)
@@ -96,13 +178,24 @@ class DownloadManager:
                 return
             if download.status in {"completed", "cancelled"}:
                 return
-            if not download.chapter_url or not download.source:
+
+            chapter_url = download.chapter_url
+            source = download.source
+            manga_id = download.manga_id
+            chapter_number = download.chapter_number
+            chapter_title = download.chapter_title
+
+            if not chapter_url or not source:
                 download.status = "failed"
                 download.error = "Missing chapter_url or source"
                 download.updated_at = datetime.utcnow()
                 db.add(download)
                 db.commit()
                 return
+
+            manga = db.get(Manga, manga_id)
+            manga_title = manga.title if manga else None
+
             download.status = "downloading"
             download.error = None
             download.updated_at = datetime.utcnow()
@@ -110,21 +203,27 @@ class DownloadManager:
             db.commit()
 
         try:
-            scraper = registry.get(download.source.lower())
-            pages = await scraper.pages(download.chapter_url)
+            scraper = self._resolve_scraper(source)
+            pages = await scraper.pages(chapter_url)
             if not pages:
                 raise RuntimeError("No pages returned by source")
 
             with Session(engine) as db:
-                download = db.get(Download, download_id)
-                if not download:
+                current = db.get(Download, download_id)
+                if not current:
                     return
-                download.total_pages = len(pages)
-                db.add(download)
+                current.total_pages = len(pages)
+                db.add(current)
                 db.commit()
 
-            chapter_dir = self.download_root / f"manga_{download.manga_id}" / f"chapter_{download.chapter_number}"
-            chapter_dir.mkdir(parents=True, exist_ok=True)
+            root = self._resolve_download_root()
+            chapter_dir = self._resolve_chapter_dir(
+                root=root,
+                manga_title=manga_title,
+                chapter_number=chapter_number,
+                chapter_title=chapter_title,
+                download_id=download_id,
+            )
 
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 for idx, page_url in enumerate(pages, start=1):
@@ -203,7 +302,5 @@ def _detect_ext(url: str, content_type: Optional[str]) -> str:
             return "gif"
     return "jpg"
 
-
-import contextlib
 
 download_manager = DownloadManager()

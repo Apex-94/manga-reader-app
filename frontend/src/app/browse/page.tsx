@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { api, addToLibrary } from "../../lib/api";
+import { api, addToLibrary, getProxyUrl } from "../../lib/api";
 import { Filter, SlidersHorizontal } from "lucide-react";
 import { MangaCard } from "../../components/MangaCard";
 import {
@@ -378,7 +378,7 @@ export default function BrowsePage() {
                   status: "Ongoing",
                   genres: it.genres || [],
                   description: "",
-                  coverUrl: it.thumbnail_url || "",
+                  coverUrl: it.thumbnail_url ? getProxyUrl(it.thumbnail_url, it.source) : "",
                   rating: 0,
                   chapters: [],
                 }}

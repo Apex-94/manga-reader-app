@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams, Link, useNavigate } from "react-router-dom";
-import { api, getProxyUrl, queueDownload, addToLibrary } from "../../lib/api";
+import { api, getProxyUrl, queueDownload, addToLibrary, deleteDownloadFiles, getDownloads } from "../../lib/api";
 import { summarizeManga } from "../../services/geminiService";
 import { Sparkles, BookOpen, Clock, PenTool, User, Check, Plus, MoreVertical } from "lucide-react";
 import { LibraryAddResponse, Manga } from "../../types";
@@ -44,6 +44,7 @@ interface Chapter {
 }
 
 export default function MangaPage() {
+    const queryClient = useQueryClient();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const url = searchParams.get("url");
@@ -59,6 +60,9 @@ export default function MangaPage() {
     const [pickerOpen, setPickerOpen] = useState(false);
     const queueMutation = useMutation({
         mutationFn: queueDownload,
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ['downloads'] });
+        },
     });
     const { isInLibrary, getLibraryManga, applyAddResult, removeByUrl } = useLibraryState();
 
@@ -80,6 +84,19 @@ export default function MangaPage() {
             return resp.data.chapters as Chapter[];
         },
         enabled: !!url,
+    });
+
+    const { data: downloads = [] } = useQuery({
+        queryKey: ['downloads'],
+        queryFn: getDownloads,
+        refetchInterval: 2000,
+    });
+
+    const deleteDownloadedMutation = useMutation({
+        mutationFn: (downloadId: number) => deleteDownloadFiles(downloadId),
+        onSuccess: async () => {
+            await queryClient.invalidateQueries({ queryKey: ['downloads'] });
+        },
     });
 
     const addMutation = useMutation({
@@ -447,6 +464,10 @@ export default function MangaPage() {
                             {chapters && chapters.length > 0 ? (
                                 chapters.slice().reverse().map((ch) => (
                                     <Grid key={ch.url} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+                                        {(() => {
+                                            const chapterDownload = downloads.find((d) => d.chapter_url === ch.url);
+                                            const hasDownloadedFiles = !!chapterDownload?.file_path && chapterDownload.status === 'completed';
+                                            return (
                                         <Paper sx={{
                                             p: 2,
                                             bgcolor: { light: 'white', dark: '#1f2937' },
@@ -494,24 +515,39 @@ export default function MangaPage() {
                                                     </Typography>
                                                 </Box>
                                             </Link>
-                                            <Button
-                                                size="small"
-                                                variant="outlined"
-                                                fullWidth
-                                                onClick={() =>
-                                                    queueMutation.mutate({
-                                                        manga_title: details.title,
-                                                        manga_url: url!,
-                                                        source: source || 'mangakatana:en',
-                                                        chapter_number: ch.chapter_number || 0,
-                                                        chapter_url: ch.url,
-                                                        chapter_title: ch.title,
-                                                    })
-                                                }
-                                            >
-                                                Download Chapter
-                                            </Button>
+                                            <Stack direction="row" spacing={1}>
+                                                <Button
+                                                    size="small"
+                                                    variant="outlined"
+                                                    fullWidth
+                                                    onClick={() =>
+                                                        queueMutation.mutate({
+                                                            manga_title: details.title,
+                                                            manga_url: url!,
+                                                            source: source || 'mangakatana:en',
+                                                            chapter_number: ch.chapter_number || 0,
+                                                            chapter_url: ch.url,
+                                                            chapter_title: ch.title,
+                                                        })
+                                                    }
+                                                >
+                                                    {hasDownloadedFiles ? 'Re-download' : 'Download Chapter'}
+                                                </Button>
+                                                {hasDownloadedFiles && chapterDownload && (
+                                                    <Button
+                                                        size="small"
+                                                        color="error"
+                                                        variant="outlined"
+                                                        onClick={() => deleteDownloadedMutation.mutate(chapterDownload.id)}
+                                                        disabled={deleteDownloadedMutation.isPending}
+                                                    >
+                                                        Delete
+                                                    </Button>
+                                                )}
+                                            </Stack>
                                         </Paper>
+                                            );
+                                        })()}
                                     </Grid>
                                 ))
                             ) : (

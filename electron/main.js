@@ -473,6 +473,22 @@ ipcMain.on('restart-app', () => {
   app.exit(0);
 });
 
+ipcMain.handle('select-download-path', async () => {
+  if (!mainWindow) {
+    return null;
+  }
+
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory', 'createDirectory'],
+  });
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return null;
+  }
+
+  return result.filePaths[0] || null;
+});
+
 process.on('uncaughtException', (error) => {
   if (isBrokenPipeError(error?.message)) {
     console.warn('Suppressed uncaught broken-pipe exception:', error.message);

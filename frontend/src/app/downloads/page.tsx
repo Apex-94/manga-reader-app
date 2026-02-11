@@ -1,7 +1,7 @@
 import React from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Box, Typography, Paper, LinearProgress, Button, Chip, Stack, Alert } from '@mui/material';
-import { cancelDownload, getDownloads, pauseDownload, resumeDownload } from '../../lib/api';
+import { cancelDownload, deleteDownloadFiles, getDownloads, pauseDownload, resumeDownload } from '../../lib/api';
 import { DownloadItem } from '../../types';
 
 export default function DownloadsPage() {
@@ -25,6 +25,9 @@ export default function DownloadsPage() {
   });
   const cancelMutation = useMutation({
     mutationFn: (id: number) => mutateAndRefresh(() => cancelDownload(id)),
+  });
+  const deleteFilesMutation = useMutation({
+    mutationFn: (id: number) => mutateAndRefresh(() => deleteDownloadFiles(id)),
   });
 
   return (
@@ -109,6 +112,15 @@ export default function DownloadsPage() {
                 disabled={download.status === 'completed' || download.status === 'cancelled'}
               >
                 Cancel
+              </Button>
+              <Button
+                size="small"
+                color="error"
+                variant="contained"
+                onClick={() => deleteFilesMutation.mutate(download.id)}
+                disabled={!download.file_path}
+              >
+                Delete Files
               </Button>
             </Stack>
           </Paper>

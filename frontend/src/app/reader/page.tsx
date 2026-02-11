@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { api } from "../../lib/api";
+import { api, getProxyUrl } from "../../lib/api";
 import { explainChapter } from "../../services/geminiService";
 import { ChevronLeft, ArrowLeft, ArrowRight, Sparkles, Settings2 } from "lucide-react";
 import {
@@ -30,7 +30,8 @@ function PageImage({
   mode: "scroll" | "single";
   source: string | null;
 }) {
-  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
+  const [displayUrl, setDisplayUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
   const isImage = useMemo(() => {
@@ -39,30 +40,49 @@ function PageImage({
 
   const proxyUrl = useMemo(() => {
     if (!isImage) return null;
-    const apiBaseUrl =
-      (import.meta as any).env?.VITE_API_URL || "http://localhost:8000/api/v1";
-    return `${apiBaseUrl}/proxy?url=${encodeURIComponent(url)}&source=${encodeURIComponent(
-      source || ""
-    )}`;
+    return getProxyUrl(url, source || undefined);
   }, [url, isImage, source]);
 
   useEffect(() => {
     let cancelled = false;
+    // Clear currently rendered image immediately on page change.
+    setDisplayUrl(null);
+    setLoading(true);
+    setError(false);
 
-    if (isImage && proxyUrl) {
-      setResolvedUrl(proxyUrl);
-      return;
-    }
+    const resolveAndLoad = async () => {
+      try {
+        const finalUrl = isImage
+          ? proxyUrl
+          : (await api.get("/manga/resolve", { params: { url, source } })).data.url;
 
-    api
-      .get("/manga/resolve", { params: { url, source } })
-      .then((res) => {
-        if (!cancelled) setResolvedUrl(res.data.url);
-      })
-      .catch((err) => {
+        if (!finalUrl || cancelled) {
+          return;
+        }
+
+        // Only show image after browser fully loads it to prevent stale previous-page frame.
+        const preloader = new Image();
+        preloader.onload = () => {
+          if (cancelled) return;
+          setDisplayUrl(finalUrl);
+          setLoading(false);
+        };
+        preloader.onerror = () => {
+          if (cancelled) return;
+          setError(true);
+          setLoading(false);
+        };
+        preloader.src = finalUrl;
+      } catch (err) {
         console.error("Failed to resolve image", err);
-        if (!cancelled) setError(true);
-      });
+        if (!cancelled) {
+          setError(true);
+          setLoading(false);
+        }
+      }
+    };
+
+    resolveAndLoad();
 
     return () => {
       cancelled = true;
@@ -88,7 +108,7 @@ function PageImage({
     );
   }
 
-  if (!resolvedUrl) {
+  if (loading || !displayUrl) {
     return (
       <Box
         sx={{
@@ -122,8 +142,10 @@ function PageImage({
       }}
     >
       <img
-        src={resolvedUrl}
+        src={displayUrl}
         alt={`p${index + 1}`}
+        loading={mode === "single" ? "eager" : "lazy"}
+        fetchPriority={mode === "single" ? "high" : "auto"}
         style={{
           width: mode === "scroll" ? "100%" : "auto",
           height: mode === "scroll" ? "auto" : "min(92vh, 1200px)",
@@ -132,7 +154,6 @@ function PageImage({
           maxWidth: mode === "scroll" ? "100%" : "100%",
           marginBottom: mode === "scroll" ? "0.75rem" : "0.5rem",
         }}
-        loading="lazy"
       />
     </Box>
   );
@@ -166,6 +187,33 @@ export default function ReaderPage() {
   const pages: string[] = useMemo(() => data?.pages || [], [data]);
   const chapter = data?.chapter;
   const manga = data?.manga;
+
+  useEffect(() => {
+    if (mode !== "single" || pages.length === 0) return;
+
+    const prefetchTargets = [pages[idx + 1], pages[idx - 1]].filter(
+      (p): p is string => Boolean(p)
+    );
+
+    prefetchTargets.forEach((pageUrl) => {
+      const isImage = /\.(jpg|jpeg|png|gif|webp)($|\?)/i.test(pageUrl) || pageUrl.includes("picsum");
+      if (isImage) {
+        const img = new Image();
+        img.src = getProxyUrl(pageUrl, source || undefined);
+        return;
+      }
+
+      api
+        .get("/manga/resolve", { params: { url: pageUrl, source } })
+        .then((res) => {
+          const img = new Image();
+          img.src = res.data.url;
+        })
+        .catch(() => {
+          // Prefetch is best-effort.
+        });
+    });
+  }, [idx, mode, pages, source]);
 
   useEffect(() => {
     setIdx(0);
