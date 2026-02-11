@@ -1,6 +1,7 @@
-import React, { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "../../lib/api";
+import React, { useMemo, useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { api, addToLibrary } from "../../lib/api";
 import { Filter, SlidersHorizontal } from "lucide-react";
 import { MangaCard } from "../../components/MangaCard";
 import {
@@ -17,6 +18,10 @@ import {
   MenuItem,
 } from "@mui/material";
 import { SECTION_GAP } from "../../constants/layout";
+import { useLibraryState } from "../../hooks/useLibraryState";
+import LibraryFeedbackSnackbar from "../../components/LibraryFeedbackSnackbar";
+import SetCategoriesPicker from "../../components/SetCategoriesPicker";
+import { LibraryAddResponse } from "../../types";
 
 interface MangaCardItem {
   title: string;
@@ -27,46 +32,32 @@ interface MangaCardItem {
   genres?: string[];
 }
 
-function MangaCardComponent({ item, onAdd }: { item: MangaCardItem; onAdd: (item: MangaCardItem) => void }) {
-  const handleAdd = (_e: React.MouseEvent, _id: string) => {
-    onAdd({
-      title: item.title,
-      url: item.url,
-      thumbnail_url: item.thumbnail_url,
-      source: item.source || "",
-      description: item.description,
-      genres: item.genres || [],
-    });
+function toMangaCardPayload(item: MangaCardItem) {
+  return {
+    title: item.title,
+    url: item.url,
+    thumbnail_url: item.thumbnail_url,
+    source: item.source || "",
   };
-
-  return (
-    <MangaCard
-      manga={{
-        id: item.url,
-        title: item.title,
-        altTitle: "",
-        author: null,
-        status: "Ongoing",
-        genres: item.genres || [],
-        description: "",
-        coverUrl: item.thumbnail_url || "",
-        rating: 0,
-        chapters: [],
-      }}
-      mangaSource={item.source}
-      isFavorite={false}
-      onAddToLibrary={handleAdd}
-      actionMode="auto"
-      showStatusBadge
-    />
-  );
 }
 
 export default function BrowsePage() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<"latest" | "popular" | "random">("latest");
   const [q, setQ] = useState("");
   const [activeFilters, setActiveFilters] = useState<any[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [feedbackActions, setFeedbackActions] = useState<Array<{ label: string; onClick: () => void }>>([]);
+
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerManga, setPickerManga] = useState<{ id?: number; title?: string }>({});
+
+  const [pendingUrls, setPendingUrls] = useState<Record<string, boolean>>({});
+
+  const { isInLibrary, getLibraryManga, applyAddResult, removeByUrl } = useLibraryState();
 
   const { data: sourcesData } = useQuery({
     queryKey: ["sources"],
@@ -128,18 +119,55 @@ export default function BrowsePage() {
     },
   });
 
-  const queryClient = useQueryClient();
-  const addMutation = useMutation({
-    mutationFn: async (item: MangaCardItem) => {
-      await api.post(`/library`, item);
+  const removeMutation = useMutation({
+    mutationFn: async (url: string) => {
+      await api.delete(`/library/`, { params: { url } });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["library"] });
-    },
-    onError: () => {
-      alert("Failed to add to library.");
+    onSuccess: (_data, url) => {
+      removeByUrl(url);
+      setFeedbackMessage("Removed from Library");
+      setFeedbackActions([]);
+      setFeedbackOpen(true);
     },
   });
+
+  const addMutation = useMutation({
+    mutationFn: async (item: MangaCardItem) => addToLibrary(toMangaCardPayload(item)),
+    onMutate: (item) => {
+      setPendingUrls((prev) => ({ ...prev, [item.url]: true }));
+    },
+    onSuccess: (resp: LibraryAddResponse, item) => {
+      applyAddResult(resp);
+      const libraryMangaId = resp.manga.id;
+      const openPicker = () => {
+        setPickerManga({ id: libraryMangaId, title: resp.manga.title });
+        setPickerOpen(true);
+      };
+
+      if (resp.alreadyExists) {
+        setFeedbackMessage("Already in Library");
+        setFeedbackActions([
+          { label: "Open", onClick: () => navigate("/library") },
+          { label: "Set categories", onClick: openPicker },
+        ]);
+      } else {
+        setFeedbackMessage("Added to Library");
+        setFeedbackActions([
+          { label: "Set categories", onClick: openPicker },
+        ]);
+      }
+      setFeedbackOpen(true);
+      setPendingUrls((prev) => ({ ...prev, [item.url]: false }));
+    },
+    onError: (_err, item) => {
+      setPendingUrls((prev) => ({ ...prev, [item.url]: false }));
+      setFeedbackMessage("Couldn't add to Library");
+      setFeedbackActions([]);
+      setFeedbackOpen(true);
+    },
+  });
+
+  const browseItems: MangaCardItem[] = useMemo(() => data?.results || [], [data?.results]);
 
   return (
     <Box>
@@ -335,11 +363,55 @@ export default function BrowsePage() {
             },
           }}
         >
-          {(data?.results || []).map((it: any, i: number) => (
-            <MangaCardComponent key={`${it.url}-${i}`} item={it} onAdd={(item) => addMutation.mutate(item)} />
-          ))}
+          {browseItems.map((it, i) => {
+            const inLibrary = isInLibrary(it.url);
+            const pending = !!pendingUrls[it.url];
+            const libraryRecord = getLibraryManga(it.url);
+            return (
+              <MangaCard
+                key={`${it.url}-${i}`}
+                manga={{
+                  id: it.url,
+                  title: it.title,
+                  altTitle: "",
+                  author: null,
+                  status: "Ongoing",
+                  genres: it.genres || [],
+                  description: "",
+                  coverUrl: it.thumbnail_url || "",
+                  rating: 0,
+                  chapters: [],
+                }}
+                mangaSource={it.source}
+                libraryButtonState={pending ? 'adding' : (inLibrary ? 'in_library' : 'not_in_library')}
+                onAddToLibrary={() => addMutation.mutate(it)}
+                onOpenInLibrary={() => navigate('/library')}
+                onSetCategories={() => {
+                  setPickerManga({ id: libraryRecord?.id, title: it.title });
+                  setPickerOpen(true);
+                }}
+                onRemoveFromLibrary={() => removeMutation.mutate(it.url)}
+                actionMode="auto"
+                showStatusBadge
+              />
+            );
+          })}
         </Box>
       )}
+
+      <SetCategoriesPicker
+        open={pickerOpen}
+        mangaId={pickerManga.id}
+        mangaTitle={pickerManga.title}
+        onClose={() => setPickerOpen(false)}
+      />
+
+      <LibraryFeedbackSnackbar
+        open={feedbackOpen}
+        message={feedbackMessage}
+        actions={feedbackActions}
+        onClose={() => setFeedbackOpen(false)}
+      />
     </Box>
   );
 }

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Manga } from '../types';
-import { Star, BookOpen, Plus, MoreVertical, Trash2 } from 'lucide-react';
+import { Star, BookOpen, Plus, MoreVertical, Trash2, Check } from 'lucide-react';
 import {
   Box,
   Typography,
@@ -13,6 +13,7 @@ import {
   ListItemText,
   useMediaQuery,
   useTheme,
+  CircularProgress,
 } from '@mui/material';
 
 export interface SecondaryAction {
@@ -23,12 +24,18 @@ export interface SecondaryAction {
   danger?: boolean;
 }
 
+type LibraryButtonState = 'not_in_library' | 'adding' | 'in_library';
+
 interface MangaCardProps {
   manga: Manga;
   mangaSource?: string;
   isFavorite?: boolean;
   toggleFavorite?: (e: React.MouseEvent, id: string) => void;
   onAddToLibrary?: (e: React.MouseEvent, id: string) => void;
+  onOpenInLibrary?: () => void;
+  onSetCategories?: () => void;
+  onRemoveFromLibrary?: () => void;
+  libraryButtonState?: LibraryButtonState;
   onRemove?: () => void;
   showRemoveButton?: boolean;
   actionMode?: 'overlay' | 'footer-menu' | 'auto';
@@ -42,6 +49,10 @@ export const MangaCard: React.FC<MangaCardProps> = ({
   isFavorite,
   toggleFavorite,
   onAddToLibrary,
+  onOpenInLibrary,
+  onSetCategories,
+  onRemoveFromLibrary,
+  libraryButtonState,
   onRemove,
   showRemoveButton,
   actionMode = 'auto',
@@ -55,22 +66,14 @@ export const MangaCard: React.FC<MangaCardProps> = ({
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
   const resolvedActionMode = actionMode === 'auto' ? ((canHover && !isMobile) ? 'overlay' : 'footer-menu') : actionMode;
+  const resolvedLibraryState: LibraryButtonState = libraryButtonState || (onAddToLibrary ? 'not_in_library' : 'not_in_library');
 
-  const builtInActions = (() => {
+  const builtInActions = useMemo(() => {
     const actions: SecondaryAction[] = [];
     const syntheticEvent = {
       stopPropagation: () => {},
       preventDefault: () => {},
     } as React.MouseEvent;
-
-    if (onAddToLibrary) {
-      actions.push({
-        id: 'add',
-        label: 'Add to Library',
-        icon: <Plus size={16} />,
-        onClick: () => onAddToLibrary(syntheticEvent, manga.id),
-      });
-    }
 
     if (toggleFavorite) {
       actions.push({
@@ -92,7 +95,7 @@ export const MangaCard: React.FC<MangaCardProps> = ({
     }
 
     return [...actions, ...(secondaryActions || [])];
-  })();
+  }, [isFavorite, manga.id, onRemove, secondaryActions, showRemoveButton, toggleFavorite]);
 
   const openReader = () => {
     const params = new URLSearchParams({ url: manga.id });
@@ -114,6 +117,87 @@ export const MangaCard: React.FC<MangaCardProps> = ({
   const runAction = (e: React.MouseEvent, fn: () => void) => {
     e.stopPropagation();
     fn();
+  };
+
+  const handleLibraryAction = (e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation();
+    if (resolvedLibraryState === 'adding') {
+      return;
+    }
+    if (resolvedLibraryState === 'in_library') {
+      setMenuAnchor(e.currentTarget);
+      return;
+    }
+    if (onAddToLibrary) {
+      onAddToLibrary(e as React.MouseEvent, manga.id);
+    }
+  };
+
+  const renderLibraryButton = (compact = false) => {
+    if (!onAddToLibrary && resolvedLibraryState !== 'in_library') return null;
+    const baseSx = {
+      minHeight: 32,
+      borderRadius: 1.25,
+      px: compact ? 1 : 1.25,
+      fontWeight: 700,
+      textTransform: 'none' as const,
+      boxShadow: compact ? '0 2px 10px rgba(0,0,0,0.25)' : 'none',
+      backdropFilter: compact ? 'blur(8px)' : 'none',
+    };
+
+    if (resolvedLibraryState === 'adding') {
+      return (
+        <Button
+          size="small"
+          variant="contained"
+          disabled
+          startIcon={<CircularProgress size={12} />}
+          sx={{
+            ...baseSx,
+            bgcolor: 'rgba(75, 85, 99, 0.92)',
+            color: '#fff',
+          }}
+        >
+          Adding...
+        </Button>
+      );
+    }
+
+    if (resolvedLibraryState === 'in_library') {
+      return (
+        <Button
+          size="small"
+          variant="contained"
+          startIcon={<Check size={14} />}
+          onClick={handleLibraryAction}
+          sx={{
+            ...baseSx,
+            bgcolor: 'rgba(22, 163, 74, 0.95)',
+            color: '#fff',
+            '&:hover': { bgcolor: 'rgba(21, 128, 61, 0.98)' },
+          }}
+        >
+          In Library
+        </Button>
+      );
+    }
+
+    return (
+      <Button
+        size="small"
+        variant="contained"
+        startIcon={<Plus size={14} />}
+        onClick={handleLibraryAction}
+        sx={{
+          ...baseSx,
+          bgcolor: 'rgba(79, 70, 229, 0.95)',
+          color: '#fff',
+          '&:hover': { bgcolor: 'rgba(67, 56, 202, 0.98)' },
+        }}
+      >
+        Add
+      </Button>
+    );
   };
 
   return (
@@ -215,21 +299,7 @@ export const MangaCard: React.FC<MangaCardProps> = ({
             </Button>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              {onAddToLibrary && (
-                <IconButton
-                  size="small"
-                  onClick={(e) => runAction(e, () => onAddToLibrary(e, manga.id))}
-                  sx={{
-                    width: 32,
-                    height: 32,
-                    bgcolor: 'rgba(0,0,0,0.55)',
-                    color: '#fff',
-                    '&:hover': { bgcolor: 'primary.main' },
-                  }}
-                >
-                  <Plus size={16} />
-                </IconButton>
-              )}
+              {renderLibraryButton(true)}
               {toggleFavorite && (
                 <IconButton
                   size="small"
@@ -295,7 +365,7 @@ export const MangaCard: React.FC<MangaCardProps> = ({
       </Box>
 
       {resolvedActionMode === 'footer-menu' && (
-        <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Button
             size="small"
             variant="contained"
@@ -306,7 +376,9 @@ export const MangaCard: React.FC<MangaCardProps> = ({
             Read
           </Button>
 
-          {builtInActions.length > 0 && (
+          {renderLibraryButton()}
+
+          {(builtInActions.length > 0 || resolvedLibraryState === 'in_library') && (
             <>
               <IconButton
                 size="small"
@@ -320,25 +392,60 @@ export const MangaCard: React.FC<MangaCardProps> = ({
               >
                 <MoreVertical size={16} />
               </IconButton>
-              <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={handleMenuClose}>
-                {builtInActions.map((action) => (
-                  <MenuItem
-                    key={action.id}
-                    onClick={(e) => {
-                      runAction(e, action.onClick);
-                      handleMenuClose();
-                    }}
-                    sx={action.danger ? { color: 'error.main' } : undefined}
-                  >
-                    {action.icon && <ListItemIcon>{action.icon}</ListItemIcon>}
-                    <ListItemText>{action.label}</ListItemText>
-                  </MenuItem>
-                ))}
-              </Menu>
             </>
           )}
         </Box>
       )}
+
+      <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={handleMenuClose}>
+        {resolvedLibraryState === 'in_library' && onOpenInLibrary && (
+          <MenuItem
+            onClick={(e) => {
+              runAction(e, onOpenInLibrary);
+              handleMenuClose();
+            }}
+          >
+            <ListItemIcon><BookOpen size={16} /></ListItemIcon>
+            <ListItemText>Open</ListItemText>
+          </MenuItem>
+        )}
+        {resolvedLibraryState === 'in_library' && onSetCategories && (
+          <MenuItem
+            onClick={(e) => {
+              runAction(e, onSetCategories);
+              handleMenuClose();
+            }}
+          >
+            <ListItemIcon><MoreVertical size={16} /></ListItemIcon>
+            <ListItemText>Set categories</ListItemText>
+          </MenuItem>
+        )}
+        {resolvedLibraryState === 'in_library' && onRemoveFromLibrary && (
+          <MenuItem
+            onClick={(e) => {
+              runAction(e, onRemoveFromLibrary);
+              handleMenuClose();
+            }}
+            sx={{ color: 'error.main' }}
+          >
+            <ListItemIcon><Trash2 size={16} /></ListItemIcon>
+            <ListItemText>Remove</ListItemText>
+          </MenuItem>
+        )}
+        {builtInActions.map((action) => (
+          <MenuItem
+            key={action.id}
+            onClick={(e) => {
+              runAction(e, action.onClick);
+              handleMenuClose();
+            }}
+            sx={action.danger ? { color: 'error.main' } : undefined}
+          >
+            {action.icon && <ListItemIcon>{action.icon}</ListItemIcon>}
+            <ListItemText>{action.label}</ListItemText>
+          </MenuItem>
+        ))}
+      </Menu>
     </Box>
   );
 };

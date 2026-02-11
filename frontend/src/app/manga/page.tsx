@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useSearchParams, Link } from "react-router-dom";
-import { api, getProxyUrl, queueDownload } from "../../lib/api";
+import { useSearchParams, Link, useNavigate } from "react-router-dom";
+import { api, getProxyUrl, queueDownload, addToLibrary } from "../../lib/api";
 import { summarizeManga } from "../../services/geminiService";
-import { Sparkles, BookOpen, Clock, PenTool, User } from "lucide-react";
-import { Manga } from "../../types";
+import { Sparkles, BookOpen, Clock, PenTool, User, Check, Plus, MoreVertical } from "lucide-react";
+import { LibraryAddResponse, Manga } from "../../types";
 import {
   Box,
   Typography,
@@ -16,7 +16,14 @@ import {
   CircularProgress,
   Container,
   Divider,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  ListItemText,
 } from "@mui/material";
+import { useLibraryState } from "../../hooks/useLibraryState";
+import LibraryFeedbackSnackbar from "../../components/LibraryFeedbackSnackbar";
+import SetCategoriesPicker from "../../components/SetCategoriesPicker";
 
 interface MangaDetails {
     id: string;
@@ -37,6 +44,7 @@ interface Chapter {
 }
 
 export default function MangaPage() {
+    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const url = searchParams.get("url");
     const source = searchParams.get("source");
@@ -44,9 +52,15 @@ export default function MangaPage() {
     const [generatingSummary, setGeneratingSummary] = useState(false);
     const [imageError, setImageError] = useState(false);
     const [backdropError, setBackdropError] = useState(false);
+    const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+    const [feedbackOpen, setFeedbackOpen] = useState(false);
+    const [feedbackMessage, setFeedbackMessage] = useState('');
+    const [feedbackActions, setFeedbackActions] = useState<Array<{ label: string; onClick: () => void }>>([]);
+    const [pickerOpen, setPickerOpen] = useState(false);
     const queueMutation = useMutation({
         mutationFn: queueDownload,
     });
+    const { isInLibrary, getLibraryManga, applyAddResult, removeByUrl } = useLibraryState();
 
     const { data: details, isLoading: loadingDetails } = useQuery({
         queryKey: ["manga", url, source],
@@ -68,6 +82,45 @@ export default function MangaPage() {
         enabled: !!url,
     });
 
+    const addMutation = useMutation({
+        mutationFn: async () => {
+            if (!details || !url) throw new Error("Missing manga details");
+            return addToLibrary({
+                title: details.title,
+                url,
+                thumbnail_url: details.thumbnail_url || undefined,
+                source: source || 'mangahere:en',
+            });
+        },
+        onSuccess: (resp: LibraryAddResponse) => {
+            applyAddResult(resp);
+            setFeedbackMessage(resp.alreadyExists ? 'Already in Library' : 'Added to Library');
+            setFeedbackActions([
+                { label: 'Open', onClick: () => navigate('/library') },
+                { label: 'Set categories', onClick: () => setPickerOpen(true) },
+            ]);
+            setFeedbackOpen(true);
+        },
+        onError: () => {
+            setFeedbackMessage("Couldn't add to Library");
+            setFeedbackActions([]);
+            setFeedbackOpen(true);
+        },
+    });
+
+    const removeMutation = useMutation({
+        mutationFn: async () => {
+            if (!url) return;
+            await api.delete(`/library/`, { params: { url } });
+        },
+        onSuccess: () => {
+            if (url) removeByUrl(url);
+            setFeedbackMessage('Removed from Library');
+            setFeedbackActions([]);
+            setFeedbackOpen(true);
+        },
+    });
+
     const handleGenerateSummary = async () => {
         if (!details) return;
         setGeneratingSummary(true);
@@ -87,6 +140,9 @@ export default function MangaPage() {
     if (!url) return <Box sx={{ p: 3 }}>No manga URL provided.</Box>;
     if (loadingDetails) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}><CircularProgress color="primary" /></Box>;
     if (!details) return <Box sx={{ p: 3 }}>Failed to load details.</Box>;
+
+    const inLibrary = isInLibrary(url);
+    const libraryManga = getLibraryManga(url);
 
     return (
         <Container maxWidth="xl" sx={{ py: 4 }}>
@@ -159,9 +215,46 @@ export default function MangaPage() {
                     </Grid>
 
                     <Grid size={{ xs: 12, md: 8 }}>
-                        <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 2, lineHeight: 1.2, letterSpacing: '-0.02em' }}>
-                            {details.title}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+                            <Typography variant="h3" sx={{ fontWeight: 'bold', lineHeight: 1.2, letterSpacing: '-0.02em', flex: 1 }}>
+                                {details.title}
+                            </Typography>
+                            {!inLibrary ? (
+                                <Button
+                                    variant="outlined"
+                                    startIcon={addMutation.isPending ? <CircularProgress size={14} /> : <Plus size={14} />}
+                                    disabled={addMutation.isPending}
+                                    onClick={() => addMutation.mutate()}
+                                >
+                                    {addMutation.isPending ? 'Adding...' : 'Add'}
+                                </Button>
+                            ) : (
+                                <>
+                                    <Button
+                                        variant="outlined"
+                                        startIcon={<Check size={14} />}
+                                        endIcon={<MoreVertical size={14} />}
+                                        onClick={(e) => setMenuAnchor(e.currentTarget)}
+                                    >
+                                        In Library
+                                    </Button>
+                                    <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
+                                        <MenuItem onClick={() => { setMenuAnchor(null); navigate('/library'); }}>
+                                            <ListItemIcon><BookOpen size={16} /></ListItemIcon>
+                                            <ListItemText>Open</ListItemText>
+                                        </MenuItem>
+                                        <MenuItem onClick={() => { setMenuAnchor(null); setPickerOpen(true); }}>
+                                            <ListItemIcon><MoreVertical size={16} /></ListItemIcon>
+                                            <ListItemText>Set categories</ListItemText>
+                                        </MenuItem>
+                                        <MenuItem onClick={() => { setMenuAnchor(null); removeMutation.mutate(); }} sx={{ color: 'error.main' }}>
+                                            <ListItemIcon><MoreVertical size={16} /></ListItemIcon>
+                                            <ListItemText>Remove</ListItemText>
+                                        </MenuItem>
+                                    </Menu>
+                                </>
+                            )}
+                        </Box>
 
                         <Stack direction="row" spacing={1} flexWrap="wrap" mb={3}>
                             {details.genres.map((g) => (
@@ -436,6 +529,19 @@ export default function MangaPage() {
                     )}
                 </Box>
             </Box>
+
+            <SetCategoriesPicker
+                open={pickerOpen}
+                mangaId={libraryManga?.id}
+                mangaTitle={details.title}
+                onClose={() => setPickerOpen(false)}
+            />
+            <LibraryFeedbackSnackbar
+                open={feedbackOpen}
+                message={feedbackMessage}
+                onClose={() => setFeedbackOpen(false)}
+                actions={feedbackActions}
+            />
         </Container>
     );
 }

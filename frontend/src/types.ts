@@ -94,6 +94,24 @@ export interface Message {
   timestamp: Date;
 }
 
+export interface LibraryAddResponse {
+  manga: {
+    id: number;
+    title: string;
+    url: string;
+    thumbnail_url?: string | null;
+    source: string;
+    description?: string | null;
+    author?: string | null;
+    artist?: string | null;
+    genres?: string | null;
+    status?: string | null;
+  };
+  created: boolean;
+  alreadyExists: boolean;
+  libraryEntryId?: number | null;
+}
+
 export type ViewState = 'HOME' | 'DETAIL' | 'READER';
 
 export type ReadingMode = 'VERTICAL' | 'SINGLE' | 'DOUBLE';

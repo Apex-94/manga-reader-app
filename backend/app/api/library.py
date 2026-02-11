@@ -17,6 +17,30 @@ class LibraryItem(BaseModel):
     class Config:
         from_attributes = True
 
+
+class MangaOut(BaseModel):
+    id: int
+    title: str
+    url: str
+    thumbnail_url: Optional[str] = None
+    source: str
+    description: Optional[str] = None
+    author: Optional[str] = None
+    artist: Optional[str] = None
+    genres: Optional[str] = None
+    status: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class LibraryAddResponse(BaseModel):
+    manga: MangaOut
+    created: bool
+    alreadyExists: bool
+    libraryEntryId: Optional[int] = None
+
+
 @router.get("", response_model=List[Manga])
 async def get_library(db: Session = Depends(get_session)):
     """
@@ -26,7 +50,7 @@ async def get_library(db: Session = Depends(get_session)):
     manga_list = [entry.manga for entry in library_entries]
     return manga_list
 
-@router.post("", response_model=Manga)
+@router.post("", response_model=LibraryAddResponse)
 async def add_to_library(item: LibraryItem, db: Session = Depends(get_session)):
     """
     Add a manga to the library.
@@ -38,17 +62,28 @@ async def add_to_library(item: LibraryItem, db: Session = Depends(get_session)):
         # Check if already in library
         existing_library_item = db.exec(select(LibraryEntry).where(LibraryEntry.manga_id == existing_manga.id)).first()
         if existing_library_item:
-            return existing_manga
-        else:
-            # Add to library
-            library_item = LibraryEntry(
-                manga_id=existing_manga.id,
-                added_at=datetime.utcnow()
+            return LibraryAddResponse(
+                manga=existing_manga,
+                created=False,
+                alreadyExists=True,
+                libraryEntryId=existing_library_item.id,
             )
-            db.add(library_item)
-            db.commit()
-            db.refresh(existing_manga)
-            return existing_manga
+
+        # Add to library
+        library_item = LibraryEntry(
+            manga_id=existing_manga.id,
+            added_at=datetime.utcnow()
+        )
+        db.add(library_item)
+        db.commit()
+        db.refresh(existing_manga)
+        db.refresh(library_item)
+        return LibraryAddResponse(
+            manga=existing_manga,
+            created=True,
+            alreadyExists=False,
+            libraryEntryId=library_item.id,
+        )
     
     # Create new manga
     manga = Manga(
@@ -71,7 +106,13 @@ async def add_to_library(item: LibraryItem, db: Session = Depends(get_session)):
     db.commit()
     db.refresh(manga)
     
-    return manga
+    db.refresh(library_item)
+    return LibraryAddResponse(
+        manga=manga,
+        created=True,
+        alreadyExists=False,
+        libraryEntryId=library_item.id,
+    )
 
 @router.delete("")
 async def remove_from_library(url: str, db: Session = Depends(get_session)):

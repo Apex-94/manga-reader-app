@@ -7,6 +7,7 @@ import {
     HistoryEntry,
     DownloadItem,
     UpdateItem,
+    LibraryAddResponse,
 } from '../types';
 
 export const api = axios.create();
@@ -111,6 +112,16 @@ export const addMangaToCategory = async (categoryId: number, mangaId: number): P
 
 export const removeMangaFromCategory = async (categoryId: number, mangaId: number): Promise<void> => {
     await api.delete(`/categories/${categoryId}/manga/${mangaId}`);
+};
+
+export const addToLibrary = async (payload: {
+    title: string;
+    url: string;
+    thumbnail_url?: string;
+    source: string;
+}): Promise<LibraryAddResponse> => {
+    const response = await api.post('/library', payload);
+    return response.data;
 };
 
 export const getReadingHistory = async (): Promise<HistoryEntry[]> => {
