@@ -143,8 +143,8 @@ pyyomi/
 │   ├── requirements.txt
 │   └── pyinstaller.spec
 │
-├── desktop/                   # Tauri wrapper (experimental/deferred)
-│   ├── src/                  # Tauri source (deferred)
+├── desktop/                   # Legacy Tauri wrapper (deferred)
+│   ├── src/                  # Tauri source (legacy/deferred)
 │   │   ├── main.tsx         # App entry
 │   │   └── App.tsx          # Root component
 │   ├── src-tauri/           # Rust backend
@@ -277,12 +277,12 @@ npm run build:all
 ### Desktop Runtime Policy
 
 - Active desktop runtime: `electron/`
-- Deferred runtime (experimental): `desktop/` (Tauri)
+- Deferred runtime (legacy): `desktop/` (Tauri)
 - This milestone validates Electron only for acceptance criteria
 
 ### Recent Stabilization Changes (Feb 9, 2026)
 
-- Frontend desktop bootstrap now avoids Tauri invoke calls when running in Electron.
+- Electron runtime is the only actively maintained desktop runtime.
 - Backend CORS allowlist includes both \\localhost\\ and \\127.0.0.1\\ origins for desktop dev ports.
 - Electron startup suppresses noisy BrokenPipe/EPIPE crash popups by disabling backend console stream logging in desktop mode.
 - Reader top bar/back button no longer collides with single-page nav click-zones at narrow window sizes.

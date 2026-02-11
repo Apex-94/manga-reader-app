@@ -58,17 +58,17 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "../desktop/src-tauri/icons/icon.ico",
+      "icon": "assets/icons/icon.ico",
       "artifactName": "Pyyomi-${version}-Electron-${os}.${ext}"
     },
     "mac": {
       "target": "dmg",
-      "icon": "../desktop/src-tauri/icons/icon.icns",
+      "icon": "assets/icons/icon.icns",
       "artifactName": "Pyyomi-${version}-Electron-${os}.${ext}"
     },
     "linux": {
       "target": "AppImage",
-      "icon": "../desktop/src-tauri/icons/",
+      "icon": "assets/icons/",
       "artifactName": "Pyyomi-${version}-Electron-${os}.${ext}"
     },
     "nsis": {
