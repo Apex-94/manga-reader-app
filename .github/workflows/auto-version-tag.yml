@@ -23,7 +23,12 @@ jobs:
         id: version
         shell: bash
         run: |
-          BASE_VERSION="$(node -p "require('./electron/package.json').version")"
+          BASE_VERSION="$(node -p "require('./electron/package.json').version" | tr -d '[:space:]')"
+          if [[ -z "$BASE_VERSION" ]]; then
+            echo "Failed to resolve electron/package.json version."
+            exit 1
+          fi
+
           LATEST_STABLE="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n 1)"
 
           if [[ -z "$LATEST_STABLE" ]]; then
@@ -33,6 +38,11 @@ jobs:
             IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
             NEXT_PATCH=$((PATCH + 1))
             NEXT_TAG="v${MAJOR}.${MINOR}.${NEXT_PATCH}"
+          fi
+
+          if [[ ! "$NEXT_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Computed tag is invalid: '$NEXT_TAG'"
+            exit 1
           fi
 
           if git rev-parse "$NEXT_TAG" >/dev/null 2>&1; then
@@ -46,9 +56,16 @@ jobs:
           echo "tag=$NEXT_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Create and push tag
-        if: steps.version.outputs.skip == 'false'
+        if: steps.version.outputs.skip == 'false' && steps.version.outputs.tag != ''
+        shell: bash
         run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          if [[ -z "$TAG" ]]; then
+            echo "No tag value found in step output; skipping."
+            exit 0
+          fi
+
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.tag }}"
-          git push origin "${{ steps.version.outputs.tag }}"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
