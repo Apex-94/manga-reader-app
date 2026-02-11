@@ -31,10 +31,6 @@ plans/
 electron/release-electron/
 electron/release-electron-*/
 
-# Legacy/deferred Tauri artifacts
-desktop/src-tauri/target/
-desktop/src-tauri/resources/pyyomi-backend.exe
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

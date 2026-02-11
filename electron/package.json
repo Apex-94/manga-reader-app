@@ -35,7 +35,6 @@
       "!backend/app/__pycache__/*",
       "!backend/app/db/__pycache__/*",
       "!backend/app/api/__pycache__/*",
-      "!desktop/src-tauri/*",
       "!screenshots/*",
       "!.git/*",
       "!.github/*",
