@@ -414,7 +414,7 @@ async function createWindow() {
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
     },
-    icon: path.join(__dirname, '..', 'desktop', 'src-tauri', 'icons', 'icon.ico'),
+    icon: path.join(__dirname, 'assets', 'icons', 'icon.ico'),
     show: false,
     backgroundColor: '#1a1a2e',
   });
