@@ -11,6 +11,7 @@ if (backendUrl) {
 contextBridge.exposeInMainWorld('electronAPI', {
   getAppPath: () => ipcRenderer.sendSync('get-app-path'),
   restartApp: () => ipcRenderer.send('restart-app'),
+  selectDownloadPath: () => ipcRenderer.invoke('select-download-path'),
   backendUrl: backendUrl || null,
   
   // Platform info

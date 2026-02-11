@@ -1,4 +1,6 @@
 from datetime import datetime
+import shutil
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -6,7 +8,8 @@ from pydantic import BaseModel
 from sqlmodel import Session, select
 
 from app.db.database import get_session
-from app.db.models import Download, Manga
+from app.db.models import Chapter, Download, Manga
+from app.extensions.loader import registry
 from app.services.download_manager import download_manager
 
 router = APIRouter(tags=["downloads"])
@@ -19,6 +22,26 @@ class QueueDownloadRequest(BaseModel):
     chapter_number: int
     chapter_url: str
     chapter_title: Optional[str] = None
+
+
+def _normalize_source_key(raw: str) -> str:
+    query_key = (raw or "").strip().lower()
+    if not query_key:
+        return query_key
+
+    source_ids = {item["id"] for item in registry.list_sources()}
+    if query_key in source_ids:
+        return query_key
+
+    if ":" not in query_key:
+        en_key = f"{query_key}:en"
+        if en_key in source_ids:
+            return en_key
+        for key in source_ids:
+            if key.startswith(f"{query_key}:"):
+                return key
+
+    return query_key
 
 
 @router.get("")
@@ -51,12 +74,14 @@ async def list_downloads(db: Session = Depends(get_session)):
 
 @router.post("/queue")
 async def queue_download(payload: QueueDownloadRequest, db: Session = Depends(get_session)):
+    normalized_source = _normalize_source_key(payload.source)
+
     manga = db.exec(select(Manga).where(Manga.url == payload.manga_url)).first()
     if not manga:
         manga = Manga(
             title=payload.manga_title,
             url=payload.manga_url,
-            source=payload.source,
+            source=normalized_source,
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
         )
@@ -78,7 +103,7 @@ async def queue_download(payload: QueueDownloadRequest, db: Session = Depends(ge
         chapter_number=payload.chapter_number,
         chapter_url=payload.chapter_url,
         chapter_title=payload.chapter_title,
-        source=payload.source,
+        source=normalized_source,
         status="pending",
         progress=0.0,
         created_at=datetime.utcnow(),
@@ -116,3 +141,38 @@ async def cancel_download(download_id: int, db: Session = Depends(get_session)):
         raise HTTPException(status_code=404, detail="Download not found")
     await download_manager.cancel(download_id)
     return {"ok": True}
+
+
+@router.delete("/{download_id}/files")
+async def delete_download_files(download_id: int, db: Session = Depends(get_session)):
+    download = db.get(Download, download_id)
+    if not download:
+        raise HTTPException(status_code=404, detail="Download not found")
+
+    await download_manager.cancel(download_id)
+
+    deleted_files = False
+    if download.file_path:
+        target = Path(download.file_path)
+        try:
+            if target.exists() and target.is_dir():
+                shutil.rmtree(target)
+                deleted_files = True
+        except Exception as exc:
+            raise HTTPException(status_code=500, detail=f"Failed to delete files: {exc}")
+
+    chapter = db.exec(
+        select(Chapter).where(
+            Chapter.manga_id == download.manga_id,
+            Chapter.chapter_number == download.chapter_number,
+        )
+    ).first()
+    if chapter:
+        chapter.is_downloaded = False
+        chapter.downloaded_path = None
+        chapter.updated_at = datetime.utcnow()
+        db.add(chapter)
+
+    db.delete(download)
+    db.commit()
+    return {"ok": True, "deleted_files": deleted_files}

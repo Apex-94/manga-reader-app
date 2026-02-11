@@ -119,6 +119,13 @@ export const MangaCard: React.FC<MangaCardProps> = ({
     fn();
   };
 
+  const sourceLabel = useMemo(() => {
+    if (!mangaSource) return null;
+    const normalized = mangaSource.split(':')[0]?.trim();
+    if (!normalized) return null;
+    return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+  }, [mangaSource]);
+
   const handleLibraryAction = (e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
     if (resolvedLibraryState === 'adding') {
@@ -360,7 +367,7 @@ export const MangaCard: React.FC<MangaCardProps> = ({
             textOverflow: 'ellipsis',
           }}
         >
-          {manga.genres?.[0] || manga.author || 'Unknown'}
+          {manga.genres?.[0] || manga.author || sourceLabel || 'Unknown'}
         </Typography>
       </Box>
 

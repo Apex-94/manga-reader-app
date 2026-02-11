@@ -51,7 +51,7 @@ export const getProxyUrl = (imageUrl: string, source?: string): string => {
     if (!api.defaults.baseURL) {
         return imageUrl;
     }
-    const params = new URLSearchParams({ url: imageUrl });
+    const params = new URLSearchParams({ url: imageUrl, cache: '1' });
     if (source) {
         params.append('source', source);
     }
@@ -197,6 +197,10 @@ export const resumeDownload = async (downloadId: number) => {
 
 export const cancelDownload = async (downloadId: number) => {
     await api.post(`/downloads/${downloadId}/cancel`);
+};
+
+export const deleteDownloadFiles = async (downloadId: number) => {
+    await api.delete(`/downloads/${downloadId}/files`);
 };
 
 export const checkUpdates = async () => {
