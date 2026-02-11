@@ -38,9 +38,20 @@ import {
   deleteCategory,
   getCategoryManga,
   removeMangaFromCategory,
+  getProxyUrl,
 } from '../lib/api';
 import { Category, Manga } from '../types';
 import { MangaCard } from './MangaCard';
+
+interface CategoryMangaItem {
+  id: number;
+  title: string;
+  url: string;
+  thumbnail_url?: string | null;
+  source: string;
+  status?: string | null;
+  author?: string | null;
+}
 
 const CategoriesPage: React.FC = () => {
   type SnackbarSeverity = 'success' | 'error';
@@ -49,7 +60,7 @@ const CategoriesPage: React.FC = () => {
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
-  const [categoryManga, setCategoryManga] = useState<Manga[]>([]);
+  const [categoryManga, setCategoryManga] = useState<CategoryMangaItem[]>([]);
   const [openDialog, setOpenDialog] = useState(false);
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
   const [categoryName, setCategoryName] = useState('');
@@ -83,7 +94,7 @@ const CategoriesPage: React.FC = () => {
     setLoadingManga(true);
     try {
       const data = await getCategoryManga(categoryId);
-      setCategoryManga(data as Manga[]);
+      setCategoryManga(data as CategoryMangaItem[]);
     } catch (error) {
       console.error('Error loading category manga:', error);
       setSnackbar({ open: true, message: 'Failed to load category manga', severity: 'error' });
@@ -319,11 +330,22 @@ const CategoriesPage: React.FC = () => {
               {categoryManga.map((manga) => (
                 <MangaCard
                   key={manga.id}
-                  manga={manga}
-                  mangaSource={(manga as any).source}
+                  manga={{
+                    id: manga.url,
+                    title: manga.title,
+                    altTitle: '',
+                    author: manga.author || null,
+                    status: (manga.status as Manga['status']) || 'Ongoing',
+                    genres: [manga.source],
+                    description: '',
+                    coverUrl: manga.thumbnail_url ? getProxyUrl(manga.thumbnail_url, manga.source) : '',
+                    rating: 0,
+                    chapters: [],
+                  }}
+                  mangaSource={manga.source}
                   showStatusBadge={false}
                   showRemoveButton
-                  onRemove={() => handleRemoveMangaFromCategory((manga as any).id)}
+                  onRemove={() => handleRemoveMangaFromCategory(manga.id)}
                   actionMode="auto"
                 />
               ))}

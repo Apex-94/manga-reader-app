@@ -1,0 +1,12 @@
+{
+  "version": "v0.9.0-beta.2",
+  "release_date": "2026-02-11",
+  "commit": "release-tag:v0.9.0-beta.2",
+  "artifacts": [
+    {
+      "name": "frontend-dist.zip",
+      "path": "artifacts/beta/v0.9.0-beta.2/frontend-dist.zip",
+      "sha256": "C5E46C96DFEE6172D6DF479B33D46CC0A776EDB7FB8B7A1606FB6568BB74F31B"
+    }
+  ]
+}

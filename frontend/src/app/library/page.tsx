@@ -1,5 +1,6 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { useMutation } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router-dom";
 import { api, getProxyUrl } from "../../lib/api";
 import { BookOpen } from "lucide-react";
 import {
@@ -11,8 +12,12 @@ import {
 } from "@mui/material";
 import { MangaCard } from "../../components/MangaCard";
 import { Manga } from "../../types";
+import { useLibraryState } from "../../hooks/useLibraryState";
+import SetCategoriesPicker from "../../components/SetCategoriesPicker";
+import LibraryFeedbackSnackbar from "../../components/LibraryFeedbackSnackbar";
 
 interface LibraryItem {
+  id: number;
   title: string;
   url: string;
   thumbnail_url?: string;
@@ -35,23 +40,24 @@ function toManga(item: LibraryItem): Manga {
 }
 
 export default function LibraryPage() {
-  const queryClient = useQueryClient();
-  const { data, isLoading } = useQuery({
-    queryKey: ["library"],
-    queryFn: async () => {
-      const resp = await api.get(`/library/`);
-      return resp.data as LibraryItem[];
-    },
-  });
+  const navigate = useNavigate();
+  const { libraryQuery, removeByUrl } = useLibraryState();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerManga, setPickerManga] = useState<{ id?: number; title?: string }>({});
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const removeMutation = useMutation({
     mutationFn: async (url: string) => {
       await api.delete(`/library/`, { params: { url } });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["library"] });
+    onSuccess: (_data, url) => {
+      removeByUrl(url);
+      setFeedbackOpen(true);
     },
   });
+
+  const data = libraryQuery.data as LibraryItem[] | undefined;
+  const isLoading = libraryQuery.isLoading;
 
   return (
     <Box>
@@ -136,14 +142,32 @@ export default function LibraryPage() {
                   mangaSource={it.source}
                   showStatusBadge={false}
                   actionMode="auto"
-                  onRemove={() => removeMutation.mutate(it.url)}
-                  showRemoveButton
+                  libraryButtonState="in_library"
+                  onOpenInLibrary={() => navigate('/library')}
+                  onSetCategories={() => {
+                    setPickerManga({ id: it.id, title: it.title });
+                    setPickerOpen(true);
+                  }}
+                  onRemoveFromLibrary={() => removeMutation.mutate(it.url)}
                 />
               ))}
             </Box>
           )}
         </>
       )}
+
+      <SetCategoriesPicker
+        open={pickerOpen}
+        mangaId={pickerManga.id}
+        mangaTitle={pickerManga.title}
+        onClose={() => setPickerOpen(false)}
+      />
+
+      <LibraryFeedbackSnackbar
+        open={feedbackOpen}
+        message="Removed from Library"
+        onClose={() => setFeedbackOpen(false)}
+      />
     </Box>
   );
 }
