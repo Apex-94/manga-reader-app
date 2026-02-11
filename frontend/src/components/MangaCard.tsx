@@ -107,8 +107,7 @@ export const MangaCard: React.FC<MangaCardProps> = ({
     setMenuAnchor(e.currentTarget);
   };
 
-  const handleMenuClose = (e?: React.MouseEvent) => {
-    e?.stopPropagation();
+  const handleMenuClose = () => {
     setMenuAnchor(null);
   };
 
